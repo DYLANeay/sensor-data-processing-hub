@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SensorHub.Core\SensorHub.Core.csproj" />
     <ProjectReference Include="..\..\src\SensorHub.Ingestion\SensorHub.Ingestion.csproj" />
+    <ProjectReference Include="..\..\src\SensorHub.Processing\SensorHub.Processing.csproj" />
   </ItemGroup>
 
 </Project>
