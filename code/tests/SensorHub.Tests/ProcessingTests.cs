@@ -8,36 +8,42 @@ public class ProcessingTests
 {
     private static SensorReading Reading(double value, string unit = "C",
         SensorType type = SensorType.Temperature, string sensorId = "room-a") =>
-        new(DateTimeOffset.UnixEpoch, sensorId, type, value, unit);
+        new() { SensorId = sensorId, Type = type, Value = value, Unit = unit, Timestamp = DateTime.UnixEpoch };
+
+    private static UnitConverter CelsiusToFahrenheit() => new(SensorType.Temperature, "C", "F", 1.8, 32);
 
     [Fact]
     public void UnitConverter_CelsiusToFahrenheit()
     {
-        var result = new UnitConverter("C", "F", 1.8, 32).Apply(Reading(100), new List<Alert>());
+        var result = CelsiusToFahrenheit().Apply(Reading(100));
 
         Assert.Equal(212, result.Value, precision: 6);
         Assert.Equal("F", result.Unit);
     }
 
     [Fact]
-    public void UnitConverter_LeavesOtherUnitsUnchanged()
+    public void UnitConverter_LeavesOtherUnitsAndTypesUnchanged()
     {
-        var co2 = Reading(610, "ppm", SensorType.CO2);
+        var co2 = CelsiusToFahrenheit().Apply(Reading(610, "ppm", SensorType.CO2));
+        var alreadyF = CelsiusToFahrenheit().Apply(Reading(70, "F"));
+        var wrongType = CelsiusToFahrenheit().Apply(Reading(40, "C", SensorType.Humidity));
 
-        Assert.Equal(co2, new UnitConverter("C", "F", 1.8, 32).Apply(co2, new List<Alert>()));
+        Assert.Equal((610, "ppm"), (co2.Value, co2.Unit));
+        Assert.Equal((70, "F"), (alreadyF.Value, alreadyF.Unit));
+        Assert.Equal((40, "C"), (wrongType.Value, wrongType.Unit));
     }
 
     [Fact]
-    public void Smoother_AveragesLastNValuesPerSensor()
+    public void Smoother_AveragesLastNValuesPerSensorAndType()
     {
         var smoother = new MovingAverageSmoother(windowSize: 2);
-        var alerts = new List<Alert>();
 
-        Assert.Equal(10, smoother.Apply(Reading(10), alerts).Value);
-        Assert.Equal(15, smoother.Apply(Reading(20), alerts).Value);
-        // A different sensor gets its own window and does not disturb room-a.
-        Assert.Equal(100, smoother.Apply(Reading(100, sensorId: "room-b"), alerts).Value);
-        Assert.Equal(25, smoother.Apply(Reading(30), alerts).Value); // (20 + 30) / 2, 10 dropped
+        Assert.Equal(10, smoother.Apply(Reading(10)).Value);
+        Assert.Equal(15, smoother.Apply(Reading(20)).Value);
+        // Other sensors, and other types under the same id, get their own window.
+        Assert.Equal(100, smoother.Apply(Reading(100, sensorId: "room-b")).Value);
+        Assert.Equal(446, smoother.Apply(Reading(446, "ppm", SensorType.CO2)).Value);
+        Assert.Equal(25, smoother.Apply(Reading(30)).Value); // (20 + 30) / 2, 10 dropped
     }
 
     [Fact]
@@ -47,43 +53,47 @@ public class ProcessingTests
     }
 
     [Theory]
-    [InlineData(1001, true)]
-    [InlineData(1000, false)] // exactly on the threshold is fine
-    [InlineData(300, true)]
-    [InlineData(600, false)]
-    public void ThresholdAlerter_AlertsOutsideMinMax(double value, bool expectAlert)
+    [InlineData(600, null)]
+    [InlineData(1000, null)] // exactly on the warning threshold is fine
+    [InlineData(1001, AlertSeverity.Warning)]
+    [InlineData(2000, AlertSeverity.Warning)]
+    [InlineData(2001, AlertSeverity.Critical)]
+    public void ThresholdAlerter_PicksSeverityFromThresholds(double value, AlertSeverity? expected)
     {
-        var alerter = new ThresholdAlerter(SensorType.CO2, min: 400, max: 1000, AlertSeverity.Warning);
-        var alerts = new List<Alert>();
+        var alerter = new ThresholdAlerter(SensorType.CO2, warningThreshold: 1000, criticalThreshold: 2000);
 
-        var result = alerter.Apply(Reading(value, "ppm", SensorType.CO2), alerts);
+        var result = alerter.Apply(Reading(value, "ppm", SensorType.CO2));
 
-        Assert.Equal(value, result.Value); // reading passes through unchanged
-        Assert.Equal(expectAlert ? 1 : 0, alerts.Count);
+        Assert.Equal(value, result.Value); // value passes through unchanged
+        Assert.Equal(expected, result.Alerts.SingleOrDefault()?.Severity);
     }
 
     [Fact]
     public void ThresholdAlerter_IgnoresOtherSensorTypes()
     {
-        var alerts = new List<Alert>();
-        new ThresholdAlerter(SensorType.CO2, null, 1000, AlertSeverity.Warning).Apply(Reading(5000), alerts);
+        var result = new ThresholdAlerter(SensorType.CO2, 1000, 2000).Apply(Reading(5000));
 
-        Assert.Empty(alerts);
+        Assert.Empty(result.Alerts);
     }
 
     [Fact]
-    public void ThresholdAlerter_MessageIsCultureInvariant()
+    public void ThresholdAlerter_RejectsWarningAboveCritical()
+    {
+        Assert.Throws<ArgumentException>(() => new ThresholdAlerter(SensorType.CO2, 2000, 1000));
+    }
+
+    [Fact]
+    public void ThresholdAlerter_AlertHasCultureInvariantMessageAndReadingTimestamp()
     {
         var original = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = new CultureInfo("nb-NO");
         try
         {
-            var alerts = new List<Alert>();
-            new ThresholdAlerter(SensorType.Temperature, null, 25.5, AlertSeverity.Critical)
-                .Apply(Reading(26.25), alerts);
+            var alert = new ThresholdAlerter(SensorType.Temperature, 25.5, 30)
+                .Apply(Reading(26.25)).Alerts.Single();
 
-            Assert.Equal("room-a Temperature 26.25 C is above max 25.5", alerts.Single().Message);
-            Assert.Equal(AlertSeverity.Critical, alerts.Single().Severity);
+            Assert.Equal("room-a Temperature 26.25 C is above Warning threshold 25.5", alert.Message);
+            Assert.Equal(DateTime.UnixEpoch, alert.Timestamp);
         }
         finally
         {
@@ -92,29 +102,38 @@ public class ProcessingTests
     }
 
     [Fact]
-    public void Chain_RunsStepsInOrderAndCollectsAlerts()
+    public void Chain_RunsStepsInOrderAndKeepsAlertsOnReading()
     {
         // Convert to F first, then alert above 80 F: 30 C = 86 F.
-        var chain = new TransformationChain(new ITransformation[]
-        {
-            new UnitConverter("C", "F", 1.8, 32),
-            new ThresholdAlerter(SensorType.Temperature, null, 80, AlertSeverity.Warning),
-        });
+        var chain = new TransformationChain();
+        chain.Add(CelsiusToFahrenheit());
+        chain.Add(new ThresholdAlerter(SensorType.Temperature, 80, 90));
 
-        var (reading, alerts) = chain.Process(Reading(30));
+        var reading = chain.Apply(Reading(30));
 
         Assert.Equal(86, reading.Value, precision: 6);
         Assert.Equal("F", reading.Unit);
-        Assert.Single(alerts);
+        Assert.Equal(AlertSeverity.Warning, reading.Alerts.Single().Severity);
     }
 
     [Fact]
-    public void Chain_WithNoStepsReturnsReadingUnchanged()
+    public void Chain_IsItselfATransformation()
     {
-        var input = Reading(21);
-        var (reading, alerts) = new TransformationChain([]).Process(input);
+        // Composite: a chain can be a step inside another chain.
+        var inner = new TransformationChain();
+        inner.Add(CelsiusToFahrenheit());
+        var outer = new TransformationChain();
+        outer.Add(inner);
 
-        Assert.Equal(input, reading);
-        Assert.Empty(alerts);
+        Assert.Equal(212, outer.Apply(Reading(100)).Value, precision: 6);
+    }
+
+    [Fact]
+    public void EmptyChain_ReturnsReadingUnchanged()
+    {
+        var result = new TransformationChain().Apply(Reading(21));
+
+        Assert.Equal(21, result.Value);
+        Assert.Empty(result.Alerts);
     }
 }
