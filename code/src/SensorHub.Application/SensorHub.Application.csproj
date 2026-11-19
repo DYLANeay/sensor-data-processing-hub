@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SensorHub.Core\SensorHub.Core.csproj" />
+    <ProjectReference Include="..\SensorHub.Ingestion\SensorHub.Ingestion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Make sample.csv available next to the built executable. -->
+    <Content Include="..\..\data\sample.csv" Link="data/sample.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

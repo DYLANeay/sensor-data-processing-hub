@@ -1,0 +1,11 @@
+timestamp,sensor_id,type,value,unit
+2026-11-19T08:00:00,room-101,temperature,21.3,C
+2026-11-19T08:00:10,room-101,co2,610,ppm
+2026-11-19T08:00:20,room-101,humidity,44.2,%
+2026-11-19T08:00:30,room-101,temperature,,C
+2026-11-19T08:00:40,room-101,co2,598,ppm
+2026-11-19T08:00:50,room-101,humidity,NaN,%
+2026-11-19T08:01:00,room-101,temperature,21.5,C
+2026-11-19T08:01:10,room-101,co2,640,ppm
+2026-11-19T08:01:20,room-101,humidity,43.8,%
+2026-11-19T08:01:30,room-101,temperature,21.4,C
