@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{956E90A3-B94B-4EDA-BF6A-EFB93802FF52}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SensorHub.Core", "src\SensorHub.Core\SensorHub.Core.csproj", "{05F24159-98D5-494B-93D0-DD9479D8C812}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{546CF595-FAC2-464B-926A-790D2DD88A39}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SensorHub.Tests", "tests\SensorHub.Tests\SensorHub.Tests.csproj", "{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SensorHub.Ingestion", "src\SensorHub.Ingestion\SensorHub.Ingestion.csproj", "{567EE356-CC8D-4541-9DD3-E80959EF9EBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SensorHub.Application", "src\SensorHub.Application\SensorHub.Application.csproj", "{24E57994-E4E7-4024-98C4-E63B604B412A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{05F24159-98D5-494B-93D0-DD9479D8C812}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05F24159-98D5-494B-93D0-DD9479D8C812}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05F24159-98D5-494B-93D0-DD9479D8C812}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05F24159-98D5-494B-93D0-DD9479D8C812}.Release|Any CPU.Build.0 = Release|Any CPU
+		{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{567EE356-CC8D-4541-9DD3-E80959EF9EBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{567EE356-CC8D-4541-9DD3-E80959EF9EBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{567EE356-CC8D-4541-9DD3-E80959EF9EBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{567EE356-CC8D-4541-9DD3-E80959EF9EBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24E57994-E4E7-4024-98C4-E63B604B412A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24E57994-E4E7-4024-98C4-E63B604B412A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24E57994-E4E7-4024-98C4-E63B604B412A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24E57994-E4E7-4024-98C4-E63B604B412A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{05F24159-98D5-494B-93D0-DD9479D8C812} = {956E90A3-B94B-4EDA-BF6A-EFB93802FF52}
+		{586B5DE4-5F56-4D3F-82E0-200CE1AF42AD} = {546CF595-FAC2-464B-926A-790D2DD88A39}
+		{567EE356-CC8D-4541-9DD3-E80959EF9EBB} = {956E90A3-B94B-4EDA-BF6A-EFB93802FF52}
+		{24E57994-E4E7-4024-98C4-E63B604B412A} = {956E90A3-B94B-4EDA-BF6A-EFB93802FF52}
+	EndGlobalSection
+EndGlobal
