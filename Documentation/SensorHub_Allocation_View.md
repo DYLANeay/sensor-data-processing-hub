@@ -4,7 +4,7 @@ This document describes the allocation view of the Sensor Data Processing Hub: h
 
 The view is written to show modifiability: for each likely change, it tells which project is edited, which assemblies are rebuilt and what is redeployed.
 
-In the UML model, the view is the package `SensorHub / Allocation` with three diagrams:
+In the UML model, the view is made of three diagrams. The two last ones are in the package `SensorHub / Allocation`; the first one is in the package `SensorHub`, next to the module packages it shows (this way EA does not print "(from SensorHub)" under each package):
 
 | Diagram | Style | Shows |
 |---|---|---|
