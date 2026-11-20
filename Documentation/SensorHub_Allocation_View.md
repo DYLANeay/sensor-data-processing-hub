@@ -129,7 +129,7 @@ What the table shows:
 
 ## 7. Mapping to the other views
 
-Summary below. The complete mapping between the three views, and the script that checks it, are in `SensorHub_View_Mapping.md`.
+Summary below. The complete mapping between the three views, and how its consistency was checked, are in `SensorHub_View_Mapping.md`.
 
 | Allocation element | Module view | C&C view |
 |---|---|---|

@@ -6,7 +6,7 @@ The architecture is documented in three views:
 - the **component-and-connector view** (`SensorHub_CnC_View.md`): what runs and how it interacts;
 - the **allocation view** (`SensorHub_Allocation_View.md`): where the code is built and where it runs.
 
-This document shows how an element of one view corresponds to the elements of the other two, and how this mapping is kept consistent. The mapping is not only written here: it is stored in the UML model (`Documentation/SensorHub.qea`) as relationships, and a script checks it.
+This document shows how an element of one view corresponds to the elements of the other two, and how this mapping is kept consistent. The mapping is not only written here: it is stored in the UML model (`Documentation/SensorHub.qea`) as relationships, and it was checked against the model (section 5).
 
 ## 1. How the views are linked in the model
 
@@ -83,7 +83,7 @@ The three columns have the same dependencies. No C&C connector links two compone
 
 ## 5. Consistency checks
 
-The script `Documentation/tools/Check-ViewConsistency.ps1` reads the open model and checks five rules:
+The mapping was checked by querying the relationships stored in the UML model against five rules:
 
 | # | Rule | Result (20.11.2026) |
 |---|---|---|
@@ -93,15 +93,7 @@ The script `Documentation/tools/Check-ViewConsistency.ps1` reads the open model 
 | 4 | The `«reference»` dependencies are exactly the `«use»` dependencies | 12 = 12, identical |
 | 5 | Each deployed assembly is nested in the .NET runtime | 6 / 6 |
 
-To run it, open `SensorHub.qea` in Enterprise Architect, then in a PowerShell window:
-
-```
-powershell -File Documentation/tools/Check-ViewConsistency.ps1
-```
-
-It prints the mapping of section 2 and the result of each rule, and exits with code 1 if a rule fails. Run it after every change to the model, so that the views cannot drift apart.
-
-The script only reads the model. Every id it puts into a query is validated first, because Enterprise Architect answers an invalid query with a modal error box that blocks every later call.
+All five rules hold. Rule 3 is the one that ties the C&C view to the module view: no component calls a component whose module it is not allowed to use. Rule 4 ties the allocation view to the module view: the build cannot contain a dependency that the uses view forbids. These rules should be checked again after any change to the model, so that the views cannot drift apart.
 
 ## 6. Following a change through the views
 
