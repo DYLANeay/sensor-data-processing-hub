@@ -113,7 +113,7 @@ What the table shows:
 | Relative paths resolved against the output folder | - | The hub behaves the same whatever directory it is started from, which avoids "file not found" during the demo |
 | One machine, one process | Simplicity | Nothing to install or connect for the demo. The single node keeps the deployment trivial |
 
-**Future socket feed.** A socket source would add a second node (a sensor gateway) connected to the laptop over TCP. On the laptop, only `SensorHub.Ingestion.dll` (new source class), `SensorHub.Configuration.dll` (factory entry) and `SensorHub.Application.dll` (recompiled because it references them) change. This is noted on the deployment diagram and is a candidate modifiability scenario.
+**Future socket feed.** A socket source would add a second node (a sensor gateway) connected to the laptop over TCP. On the laptop, only `SensorHub.Ingestion.dll` (new source class), `SensorHub.Configuration.dll` (factory entry) and `SensorHub.Application.dll` (recompiled because it references them) change; Processing, Output and Core are unchanged. Because `hub` reads its sources in a single thread, a blocking socket would also require the concurrent variant described in the C&C view. This is a candidate modifiability scenario.
 
 ## 6. Modelling choices
 
