@@ -1,3 +1,7 @@
 # Separate repo (Overleaf): git@github.com:DYLANeay/software-project-report.git
 # Cloned locally into report/ — do not track it here.
 report/
+
+# Enterprise Architect: temporary SQLite journal written while the model is open
+*.qea-journal
+*.qeax-journal
