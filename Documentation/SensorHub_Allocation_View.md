@@ -28,7 +28,6 @@ Each module of the module view is one C# project, built into one assembly. The `
 | Processing | `code/src/SensorHub.Processing/` | `SensorHub.Processing.dll` | `SensorHub.Processing` |
 | Output | `code/src/SensorHub.Output/` | `SensorHub.Output.dll` | `SensorHub.Output` |
 | Core | `code/src/SensorHub.Core/` | `SensorHub.Core.dll` | `SensorHub.Core` |
-| (tests) | `code/tests/SensorHub.Tests/` | `SensorHub.Tests.dll` | `SensorHub.Tests` |
 
 Other files in the source tree:
 
@@ -54,7 +53,6 @@ A `«reference»` dependency is a `<ProjectReference>` in the `.csproj` file. Th
 | `SensorHub.Processing` | Core |
 | `SensorHub.Output` | Core |
 | `SensorHub.Core` | none |
-| `SensorHub.Tests` | the modules it tests (not deployed) |
 
 Because a project can only use the types of the projects it references, a forbidden dependency does not compile. For example, `SensorHub.Processing` has no reference to `SensorHub.Output`, so a `using SensorHub.Output;` in a transformation is a build error. The rules of the uses view are checked by the compiler on every build, not only by code review.
 
@@ -85,7 +83,7 @@ dotnet run --project code/src/SensorHub.Application -- other-config.json
 
 ## 4. Modifiability: impact of likely changes
 
-The response measure of a change is what has to be edited, recompiled and redeployed. The table uses the project references above: when a project changes, the projects that reference it are recompiled too (the test project as well, which is not deployed).
+The response measure of a change is what has to be edited, recompiled and redeployed. The table uses the project references above: when a project changes, the projects that reference it are recompiled too.
 
 | Change | Edited | Assemblies recompiled | Redeployed |
 |---|---|---|---|
@@ -125,7 +123,6 @@ What the table shows:
 | The assemblies are nested in the .NET runtime node, the files in the laptop node | `«deploy»` arrows from each artifact to the node | Nesting is the UML notation for "deployed on". Seven `«deploy»` arrows would only add lines |
 | `config.json`, `data/room-a.csv` and `hub.log` are the same model elements as in the C&C view | Separate artifacts for each view | One element per file, so the two views cannot disagree. In the C&C diagram, they appear as `Allocation::config.json` because they are owned by this view |
 | The entry assembly `SensorHub.Application.dll` `«manifest»` the C&C `SensorHub` component | No link between deployment and C&C | It is the mapping between the two views: running this artifact creates that process |
-| The test assembly is shown in the references diagram but not deployed | Leaving it out | It is part of the build and depends on the modules, but it never runs on the presentation laptop |
 
 ## 7. Mapping to the other views
 
