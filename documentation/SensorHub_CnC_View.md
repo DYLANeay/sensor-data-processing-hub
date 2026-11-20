@@ -4,7 +4,7 @@ This document describes the component-and-connector (C&C) view of the Sensor Dat
 
 In the UML model, the view is the diagram **C&C View - Runtime** in the package `SensorHub / Runtime (C&C)`.
 
-![C&C View - Runtime](CnCView/CnC.png)
+![C&C View - Runtime](../uml/diagrams/cnc-view/CnC.png)
 
 ## 1. Overview
 

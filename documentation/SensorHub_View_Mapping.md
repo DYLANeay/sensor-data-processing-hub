@@ -6,11 +6,11 @@ The architecture is documented in three views:
 - the **component-and-connector view** (`SensorHub_CnC_View.md`): what runs and how it interacts;
 - the **allocation view** (`SensorHub_Allocation_View.md`): where the code is built and where it runs.
 
-This document shows how an element of one view corresponds to the elements of the other two, and how this mapping is kept consistent. The mapping is not only written here: it is stored in the UML model (`Documentation/SensorHub.qea`) as relationships, and it was checked against the model (section 5).
+This document shows how an element of one view corresponds to the elements of the other two, and how this mapping is kept consistent. The mapping is not only written here: it is stored in the UML model (`uml/SensorHub.qea`) as relationships, and it was checked against the model (section 5).
 
 In the UML model, the mapping is drawn in the diagram **View Mapping** (package `SensorHub`):
 
-![View Mapping](MappingView/ViewMapping.png)
+![View Mapping](../uml/diagrams/view-mapping/ViewMapping.png)
 
 Each horizontal band is one module. Left: its C&C components inside the `SensorHub` process. Middle: the module (package) and its classes, with the classes that become components on the left and the interfaces and data types on the right. Right: the assembly built from the module, deployed in the .NET 8 runtime on the laptop. `«trace»` arrows go from a component to its class, `«manifest»` arrows from an assembly to its module; the entry assembly also manifests the `SensorHub` process (arrow along the top).
 

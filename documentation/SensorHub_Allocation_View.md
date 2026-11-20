@@ -16,7 +16,7 @@ A work assignment view is not included: it brings little for a project of this s
 
 ## 1. Implementation: modules to assemblies
 
-![Allocation View - Implementation (modules)](AllocationView/Modules.png)
+![Allocation View - Implementation (modules)](../uml/diagrams/allocation-view/Modules.png)
 
 Each module of the module view is one C# project, built into one assembly. The `«manifest»` dependency says that the assembly contains the code of the module.
 
@@ -41,7 +41,7 @@ In .NET 8 every project, including the entry project, is built into a `.dll`. Th
 
 ## 2. Implementation: project references
 
-![Allocation View - Implementation (references)](AllocationView/References.png)
+![Allocation View - Implementation (references)](../uml/diagrams/allocation-view/References.png)
 
 A `«reference»` dependency is a `<ProjectReference>` in the `.csproj` file. The references are **exactly the dependencies of the uses view**, drawn in the same layout:
 
@@ -58,7 +58,7 @@ Because a project can only use the types of the projects it references, a forbid
 
 ## 3. Deployment
 
-![Allocation View - Deployment](AllocationView/Deployment.png)
+![Allocation View - Deployment](../uml/diagrams/allocation-view/Deployment.png)
 
 | Element | Type | Content |
 |---|---|---|
