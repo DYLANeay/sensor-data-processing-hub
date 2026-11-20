@@ -6,35 +6,32 @@ namespace SensorHub.Tests;
 public class RandomSensorSourceTests
 {
     [Fact]
-    public async Task SameSeed_ProducesIdenticalValueSequences()
+    public void Read_ProducesCountReadingsWithinRange()
     {
-        RandomSensorSource MakeSource() => new(
-            "sim-01", SensorType.Temperature, "C",
-            baseline: 21.0, amplitude: 1.5, noiseStdDev: 0.3,
-            interval: TimeSpan.Zero, seed: 42, count: 10);
+        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400, 800, 100).Read().ToList();
 
-        var first = await ReadValues(MakeSource());
-        var second = await ReadValues(MakeSource());
-
-        Assert.Equal(first, second);
+        Assert.Equal(100, readings.Count);
+        Assert.All(readings, r =>
+        {
+            Assert.InRange(r.Value, 400, 800);
+            Assert.Equal("sim-01", r.SensorId);
+            Assert.Equal(SensorType.CO2, r.Type);
+            Assert.Equal("ppm", r.Unit);
+        });
     }
 
     [Fact]
-    public async Task ZeroNoiseAndAmplitude_EveryValueEqualsBaseline()
+    public void EqualMinAndMax_EveryValueEqualsThatValue()
     {
-        var values = await ReadValues(new RandomSensorSource(
-            "sim-01", SensorType.Temperature, "C",
-            baseline: 21.0, amplitude: 0.0, noiseStdDev: 0.0,
-            interval: TimeSpan.Zero, seed: 42, count: 10));
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 21, 21, 10).Read();
 
-        Assert.All(values, value => Assert.Equal(21.0, value));
+        Assert.All(readings, r => Assert.Equal(21, r.Value));
     }
 
-    private static async Task<List<double>> ReadValues(RandomSensorSource source)
+    [Fact]
+    public void MinAboveMax_Throws()
     {
-        var values = new List<double>();
-        await foreach (var reading in source.ReadAsync())
-            values.Add(reading.Value);
-        return values;
+        Assert.Throws<ArgumentException>(() =>
+            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 25, 20, 10));
     }
 }
