@@ -6,6 +6,6 @@ namespace SensorHub.Processing;
 public interface ITransformation
 {
     /// <summary>Returns the (possibly changed) reading. A step that detects a
-    /// problem adds an <see cref="Alert"/> to <paramref name="alerts"/>.</summary>
-    SensorReading Apply(SensorReading reading, ICollection<Alert> alerts);
+    /// problem adds an <see cref="Alert"/> to <c>reading.Alerts</c>.</summary>
+    SensorReading Apply(SensorReading reading);
 }

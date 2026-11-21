@@ -1,25 +1,33 @@
 ﻿using SensorHub.Core;
 using SensorHub.Ingestion;
+using SensorHub.Processing;
 
-// Demo: prints the sample CSV, then 5 simulated readings.
+// Demo: reads the sample CSV and a simulated sensor, runs each reading
+// through a transformation chain, and prints the result plus any alerts.
 
 // sample.csv is copied to the output directory (see csproj),
 // so this works regardless of the current working directory.
 var csvPath = Path.Combine(AppContext.BaseDirectory, "data", "sample.csv");
 
+var chain = new TransformationChain();
+chain.Add(new UnitConverter(SensorType.Temperature, "C", "F", 1.8, 32));
+chain.Add(new MovingAverageSmoother(windowSize: 3));
+chain.Add(new ThresholdAlerter(SensorType.Temperature, warningThreshold: 74, criticalThreshold: 78));
+
 var csvSource = new CsvSensorSource(csvPath);
-Console.WriteLine($"--- {csvSource.Name} ---");
-await foreach (var reading in csvSource.ReadAsync())
-    Print(reading);
+Console.WriteLine($"--- {Path.GetFileName(csvPath)} ---");
+foreach (var reading in csvSource.Read())
+    Print(chain.Apply(reading));
 
-var sensor = new RandomSensorSource(
-    sensorId: "sim-01", type: SensorType.Temperature, unit: "C",
-    baseline: 21.0, amplitude: 1.5, noiseStdDev: 0.2,
-    interval: TimeSpan.FromMilliseconds(10), seed: 42, count: 5);
-Console.WriteLine($"--- {sensor.Name} ---");
-await foreach (var reading in sensor.ReadAsync())
-    Print(reading);
+var sensor = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 5);
+Console.WriteLine("--- sim-01 ---");
+foreach (var reading in sensor.Read())
+    Print(chain.Apply(reading));
 
-static void Print(SensorReading reading) =>
+static void Print(SensorReading reading)
+{
     Console.WriteLine(
         $"{reading.Timestamp:O} {reading.SensorId} {reading.Type} = {reading.Value:0.##} {reading.Unit}");
+    foreach (var alert in reading.Alerts)
+        Console.WriteLine($"  [{alert.Severity}] {alert.Message}");
+}

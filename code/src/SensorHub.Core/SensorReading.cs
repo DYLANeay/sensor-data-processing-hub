@@ -1,4 +1,17 @@
 namespace SensorHub.Core;
 
-/// <summary>One immutable reading from a sensor.</summary>
-public sealed record SensorReading(DateTimeOffset Timestamp, string SensorId, SensorType Type, double Value, string Unit);
+/// <summary>One reading from a sensor, together with the alerts raised on it.</summary>
+public sealed class SensorReading
+{
+    public string SensorId { get; set; } = string.Empty;
+
+    public SensorType Type { get; set; }
+
+    public double Value { get; set; }
+
+    public string Unit { get; set; } = string.Empty;
+
+    public DateTime Timestamp { get; set; }
+
+    public List<Alert> Alerts { get; set; } = [];
+}

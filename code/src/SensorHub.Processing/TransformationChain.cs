@@ -3,15 +3,17 @@ using SensorHub.Core;
 namespace SensorHub.Processing;
 
 /// <summary>Runs the configured transformations in order on each reading.</summary>
-public sealed class TransformationChain(IEnumerable<ITransformation> steps)
+public sealed class TransformationChain : ITransformation
 {
-    private readonly IReadOnlyList<ITransformation> _steps = steps.ToList();
+    private readonly List<ITransformation> _steps = [];
 
-    public (SensorReading Reading, IReadOnlyList<Alert> Alerts) Process(SensorReading reading)
+    /// <summary>Adds a step at the end of the chain.</summary>
+    public void Add(ITransformation step) => _steps.Add(step);
+
+    public SensorReading Apply(SensorReading reading)
     {
-        var alerts = new List<Alert>();
         foreach (var step in _steps)
-            reading = step.Apply(reading, alerts);
-        return (reading, alerts);
+            reading = step.Apply(reading);
+        return reading;
     }
 }

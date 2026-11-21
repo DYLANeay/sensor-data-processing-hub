@@ -8,7 +8,7 @@ namespace SensorHub.Processing;
 public sealed class MovingAverageSmoother : ITransformation
 {
     private readonly int _windowSize;
-    private readonly Dictionary<(string SensorId, SensorType Type), Queue<double>> _windows = new();
+    private readonly Dictionary<(string, SensorType), Queue<double>> _windows = new();
 
     public MovingAverageSmoother(int windowSize)
     {
@@ -16,7 +16,7 @@ public sealed class MovingAverageSmoother : ITransformation
         _windowSize = windowSize;
     }
 
-    public SensorReading Apply(SensorReading reading, ICollection<Alert> alerts)
+    public SensorReading Apply(SensorReading reading)
     {
         var key = (reading.SensorId, reading.Type);
         if (!_windows.TryGetValue(key, out var window))
@@ -26,6 +26,14 @@ public sealed class MovingAverageSmoother : ITransformation
         if (window.Count > _windowSize)
             window.Dequeue();
 
-        return reading with { Value = window.Average() };
+        return new SensorReading
+        {
+            SensorId = reading.SensorId,
+            Type = reading.Type,
+            Value = window.Average(),
+            Unit = reading.Unit,
+            Timestamp = reading.Timestamp,
+            Alerts = reading.Alerts,
+        };
     }
 }

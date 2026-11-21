@@ -6,35 +6,39 @@ namespace SensorHub.Tests;
 public class RandomSensorSourceTests
 {
     [Fact]
-    public async Task SameSeed_ProducesIdenticalValueSequences()
+    public void Read_YieldsExactlyCountReadings()
     {
-        RandomSensorSource MakeSource() => new(
-            "sim-01", SensorType.Temperature, "C",
-            baseline: 21.0, amplitude: 1.5, noiseStdDev: 0.3,
-            interval: TimeSpan.Zero, seed: 42, count: 10);
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 5).Read().ToList();
 
-        var first = await ReadValues(MakeSource());
-        var second = await ReadValues(MakeSource());
-
-        Assert.Equal(first, second);
+        Assert.Equal(5, readings.Count);
     }
 
     [Fact]
-    public async Task ZeroNoiseAndAmplitude_EveryValueEqualsBaseline()
+    public void Read_EveryValueLiesWithinConfiguredRange()
     {
-        var values = await ReadValues(new RandomSensorSource(
-            "sim-01", SensorType.Temperature, "C",
-            baseline: 21.0, amplitude: 0.0, noiseStdDev: 0.0,
-            interval: TimeSpan.Zero, seed: 42, count: 10));
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 500).Read().ToList();
 
-        Assert.All(values, value => Assert.Equal(21.0, value));
+        Assert.All(readings, reading => Assert.InRange(reading.Value, 18.0, 24.0));
     }
 
-    private static async Task<List<double>> ReadValues(RandomSensorSource source)
+    [Fact]
+    public void Read_UsesConfiguredSensorIdTypeAndUnit()
     {
-        var values = new List<double>();
-        await foreach (var reading in source.ReadAsync())
-            values.Add(reading.Value);
-        return values;
+        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400.0, 800.0, 10).Read().ToList();
+
+        Assert.All(readings, reading =>
+        {
+            Assert.Equal("sim-01", reading.SensorId);
+            Assert.Equal(SensorType.CO2, reading.Type);
+            Assert.Equal("ppm", reading.Unit);
+        });
+    }
+
+    [Fact]
+    public void Read_StartsWithEmptyAlerts()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 3).Read().ToList();
+
+        Assert.All(readings, reading => Assert.Empty(reading.Alerts));
     }
 }

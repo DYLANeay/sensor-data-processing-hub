@@ -3,32 +3,50 @@ using SensorHub.Core;
 
 namespace SensorHub.Processing;
 
-/// <summary>Raises an alert when a reading of <c>type</c> goes below
-/// <c>min</c> or above <c>max</c> (either bound can be left out). The reading
-/// itself passes through unchanged. Thresholds are compared to the value as it
-/// is at this point in the chain, so place this step after any unit
-/// conversion and use thresholds in the converted unit.</summary>
-public sealed class ThresholdAlerter(SensorType type, double? min, double? max, AlertSeverity severity)
-    : ITransformation
+/// <summary>Raises an alert when a reading of <c>sensorType</c> goes above
+/// <c>warningThreshold</c>, or a critical alert above <c>criticalThreshold</c>.
+/// The reading itself passes through unchanged. Thresholds are compared to
+/// the value as it is at this point in the chain, so place this step after
+/// any unit conversion and use thresholds in the converted unit.</summary>
+public sealed class ThresholdAlerter : ITransformation
 {
-    public SensorReading Apply(SensorReading reading, ICollection<Alert> alerts)
+    private readonly SensorType _sensorType;
+    private readonly double _warningThreshold;
+    private readonly double _criticalThreshold;
+
+    public ThresholdAlerter(SensorType sensorType, double warningThreshold, double criticalThreshold)
     {
-        if (reading.Type != type) return reading;
+        _sensorType = sensorType;
+        _warningThreshold = warningThreshold;
+        _criticalThreshold = criticalThreshold;
+    }
 
-        string? problem = null;
-        if (max is not null && reading.Value > max) problem = Invariant($"above max {max}");
-        else if (min is not null && reading.Value < min) problem = Invariant($"below min {min}");
+    public SensorReading Apply(SensorReading reading)
+    {
+        if (reading.Type != _sensorType) return reading;
 
-        if (problem is not null)
+        if (reading.Value > _criticalThreshold)
         {
-            var message = Invariant(
-                $"{reading.SensorId} {reading.Type} {reading.Value:0.##} {reading.Unit} is {problem}");
-            alerts.Add(new Alert(reading, severity, message));
+            reading.Alerts.Add(MakeAlert(AlertSeverity.Critical, _criticalThreshold));
+        }
+        else if (reading.Value > _warningThreshold)
+        {
+            reading.Alerts.Add(MakeAlert(AlertSeverity.Warning, _warningThreshold));
         }
 
         return reading;
-    }
 
-    // Invariant culture so "25.5" never becomes "25,5" on a Norwegian machine.
-    private static string Invariant(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
+        // Invariant culture so "25.5" never becomes "25,5" on a Norwegian machine.
+        Alert MakeAlert(AlertSeverity severity, double threshold)
+        {
+            var level = severity.ToString().ToLowerInvariant();
+            return new Alert
+            {
+                Severity = severity,
+                Timestamp = DateTime.Now,
+                Message = FormattableString.Invariant(
+                    $"{reading.SensorId} {reading.Type} {reading.Value:0.##} {reading.Unit} is above {level} {threshold:0.##}"),
+            };
+        }
+    }
 }

@@ -3,17 +3,40 @@ using SensorHub.Core;
 namespace SensorHub.Processing;
 
 /// <summary>Linear unit conversion: newValue = value * factor + offset.
-/// Celsius to Fahrenheit is ("C", "F", 1.8, 32). Readings in any other unit
-/// pass through unchanged. Because the formula is plain data, a new
-/// conversion is a config change, not a new class.</summary>
-public sealed class UnitConverter(string fromUnit, string toUnit, double factor, double offset = 0)
-    : ITransformation
+/// Celsius to Fahrenheit is (Temperature, "C", "F", 1.8, 32). Readings of any
+/// other type or unit pass through unchanged. Because the formula is plain
+/// data, a new conversion is a config change, not a new class.</summary>
+public sealed class UnitConverter : ITransformation
 {
-    public SensorReading Apply(SensorReading reading, ICollection<Alert> alerts)
+    private readonly SensorType _sensorType;
+    private readonly string _fromUnit;
+    private readonly string _toUnit;
+    private readonly double _factor;
+    private readonly double _offset;
+
+    public UnitConverter(SensorType sensorType, string fromUnit, string toUnit, double factor, double offset)
     {
-        if (!string.Equals(reading.Unit, fromUnit, StringComparison.OrdinalIgnoreCase))
+        _sensorType = sensorType;
+        _fromUnit = fromUnit;
+        _toUnit = toUnit;
+        _factor = factor;
+        _offset = offset;
+    }
+
+    public SensorReading Apply(SensorReading reading)
+    {
+        if (reading.Type != _sensorType
+            || !string.Equals(reading.Unit, _fromUnit, StringComparison.OrdinalIgnoreCase))
             return reading;
 
-        return reading with { Value = reading.Value * factor + offset, Unit = toUnit };
+        return new SensorReading
+        {
+            SensorId = reading.SensorId,
+            Type = reading.Type,
+            Value = reading.Value * _factor + _offset,
+            Unit = _toUnit,
+            Timestamp = reading.Timestamp,
+            Alerts = reading.Alerts,
+        };
     }
 }
