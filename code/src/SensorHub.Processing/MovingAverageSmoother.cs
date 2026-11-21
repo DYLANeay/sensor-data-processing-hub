@@ -3,11 +3,12 @@ using SensorHub.Core;
 namespace SensorHub.Processing;
 
 /// <summary>Replaces each value with the average of the last
-/// <c>windowSize</c> values of the same sensor and type.</summary>
-public class MovingAverageSmoother : ITransformation
+/// <c>windowSize</c> values of the same sensor and type, so room-a's
+/// temperature is never averaged with room-b's or with a CO2 value.</summary>
+public sealed class MovingAverageSmoother : ITransformation
 {
     private readonly int _windowSize;
-    private readonly Dictionary<string, Queue<double>> _windows = new();
+    private readonly Dictionary<(string, SensorType), Queue<double>> _windows = new();
 
     public MovingAverageSmoother(int windowSize)
     {
@@ -17,8 +18,7 @@ public class MovingAverageSmoother : ITransformation
 
     public SensorReading Apply(SensorReading reading)
     {
-        // Key on id AND type: room-a sends temperature, CO2 and humidity under one id.
-        var key = $"{reading.SensorId}/{reading.Type}";
+        var key = (reading.SensorId, reading.Type);
         if (!_windows.TryGetValue(key, out var window))
             _windows[key] = window = new Queue<double>();
 
@@ -26,7 +26,14 @@ public class MovingAverageSmoother : ITransformation
         if (window.Count > _windowSize)
             window.Dequeue();
 
-        reading.Value = window.Average();
-        return reading;
+        return new SensorReading
+        {
+            SensorId = reading.SensorId,
+            Type = reading.Type,
+            Value = window.Average(),
+            Unit = reading.Unit,
+            Timestamp = reading.Timestamp,
+            Alerts = reading.Alerts,
+        };
     }
 }

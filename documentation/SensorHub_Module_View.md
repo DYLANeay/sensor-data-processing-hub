@@ -90,8 +90,9 @@ The system is implemented in **C#**. Each module is a package in the UML model a
 
 | Tactic | Where it appears |
 |---|---|
-| Use an intermediary / abstract common services | Interfaces `ISensorSource`, `ITransformation`, `IOutputSink` isolate the hub from concrete implementations |
-| Defer binding | Transformation chain, conversions and sinks are selected from the config file, not from the code |
+| Encapsulate | Interfaces `ISensorSource`, `ITransformation`, `IOutputSink` hide each implementation behind an explicit interface |
+| Use an intermediary | `Hub` sits between sources, chain and sinks, and the factories sit between `Program` and the concrete classes |
+| Defer binding (configuration-time binding) | Transformation chain, conversions and sinks are selected from the config file at startup, not from the code |
 | Increase semantic coherence | One responsibility per module: ingest, process, output, configure, share data |
 | Restrict dependencies | `Ingestion`, `Processing` and `Output` do not know each other. Only `Application` coordinates them (see the uses view) |
 
@@ -111,7 +112,7 @@ The uses view shows which module uses which. A module A uses a module B if A nee
 | Configuration | Ingestion | `SourceFactory` creates the concrete sources |
 | Configuration | Processing | `TransformationFactory` creates the transformations and the chain |
 | Configuration | Output | `SinkFactory` creates the concrete sinks |
-| Configuration | Core | Settings refer to shared types such as `SensorType` |
+| Configuration | Core | `SourceFactory` and `TransformationFactory` turn the sensor type named in the config file into a `SensorType` |
 | Ingestion | Core | Produces `SensorReading` objects |
 | Processing | Core | Consumes and produces `SensorReading`, raises `Alert` |
 | Output | Core | Displays and logs `SensorReading` and `Alert` |
@@ -149,7 +150,8 @@ If a module changes, the modules that use it may have to change too. This is a m
 | Tactic | Decision | Because |
 |---|---|---|
 | Restrict dependencies | No dependencies between `Ingestion`, `Processing` and `Output` | A change to a source, a transformation or a sink cannot propagate to the other two |
-| Use an intermediary | `Application` works through interfaces, `Configuration` creates the concrete objects | Adding a new implementation does not require changing `Hub` |
+| Encapsulate | `Application` works only through the interfaces of `Ingestion`, `Processing` and `Output` | Adding a new implementation does not require changing `Hub` |
+| Use an intermediary | `Configuration` (the factories) creates the concrete objects, `Hub` connects them | Sources, transformations and sinks never reference each other |
 | Increase semantic coherence | `Core` holds only shared data, with no behavior | The most used module is also the most stable |
 | Defer binding | `Configuration` decides at runtime which classes are created | Behavior changes with the config file, not with a rebuild |
 
@@ -162,8 +164,8 @@ The class view shows the classes and interfaces inside the modules, with their a
 | Class View - Application | `Hub` and the three interfaces it holds (`ISensorSource`, `ITransformation`, `IOutputSink`) |
 | Class View - Ingestion | `ISensorSource`, `CsvSensorSource`, `RandomSensorSource` |
 | Class View - Processing | `ITransformation`, `UnitConverter`, `MovingAverageSmoother`, `ThresholdAlerter`, `TransformationChain` |
-| Class View - Output | `IOutputSink`, `ConsoleDashboardSink`, `LogFileSink` |
-| Class View - Configuration | `Program`, `ConfigLoader`, `HubConfig`, `ComponentConfig` and the three factories |
+| Class View - Output | `IOutputSink`, `ConsoleDashboardSink`, `LogFileSink` (with `SensorReading`, `Alert` and `SensorType` as references) |
+| Class View - Configuration | `Program`, `ConfigLoader`, `HubConfig`, `ComponentConfig` and the three factories (with `SensorType` as reference) |
 | Class View - Core | `SensorReading`, `Alert`, `SensorType`, `AlertSeverity` |
 
 Classes that belong to another module but are used by the module in the diagram (for example `SensorReading` in `Ingestion`) appear as references with a `«use»` dependency. Their details are in their own module's diagram.
@@ -173,17 +175,25 @@ Classes that belong to another module but are used by the module in the diagram 
 | Relationship | Meaning | Example |
 |---|---|---|
 | Realization (dashed, hollow triangle) | The class implements the interface | `CsvSensorSource` implements `ISensorSource` |
-| Aggregation (hollow diamond on the whole) | An object holds other objects as parts | `Hub` holds `ISensorSource`, `ITransformation` and `IOutputSink` |
-| Association (solid arrow) | A property whose type is another class | `SensorReading.Type` is a `SensorType` |
+| Directed association (solid line, open arrow) | A field whose type is another class or interface; the arrow shows who knows whom | `Hub` → `ISensorSource` (role `-_sources 1..*`) |
+| Aggregation (hollow diamond on the whole) | The whole holds parts that can exist on their own | `TransformationChain` holds its steps (role `-_steps`) |
+| Composition (filled diamond on the whole) | The parts live and die with the whole | `SensorReading` owns its `Alerts`; `HubConfig` owns its `Sources`, `Transformations` and `Sinks` entries |
 | Usage `«use»` (dashed arrow) | A class uses another one (parameter, return type, creation) without owning it | `SourceFactory` creates `CsvSensorSource` |
 
-Note: composition (filled diamond) would be more precise for `SensorReading` and `Alert`, and for `HubConfig` and `ComponentConfig`. The model uses aggregation for both.
+An association end reads `visibility role multiplicity`. For example `-_sources 1..*` means: a private field named `_sources` that refers to one or more `ISensorSource`. The `-` is UML (private; `+` public, `#` protected, `~` package), the leading underscore is only the C# naming convention for private fields.
+
+A UML attribute and an association end are the same thing (a property of the class), so each property is drawn once:
+
+- a property whose type is an enumeration (`SensorType`, `AlertSeverity`) or a library type (`string`, `double`, `Dictionary`) is an **attribute**;
+- a property whose type is a class or interface of the model is an **association end** with a role name (`_sources`, `_chain`, `_sinks`, `_steps`, `Alerts`, `Sources`, `Transformations`, `Sinks`).
+
+Static members are underlined (`Program.Main`).
 
 ### 4.2 Core
 
 | Type | Members (C#) |
 |---|---|
-| `SensorReading` | `string SensorId`, `SensorType Type`, `double Value`, `string Unit`, `DateTime Timestamp`, `List<Alert> Alerts` |
+| `SensorReading` | `string SensorId`, `SensorType Type`, `double Value`, `string Unit`, `DateTime Timestamp`, `List<Alert> Alerts` (composition role, `0..*`) |
 | `Alert` | `AlertSeverity Severity`, `string Message`, `DateTime Timestamp` |
 | `SensorType` (enum) | `Temperature`, `CO2`, `Humidity` |
 | `AlertSeverity` (enum) | `Warning`, `Critical` |
@@ -204,30 +214,32 @@ A reading carries its own alerts. This lets every transformation use the same si
 |---|---|
 | `ITransformation` | `SensorReading Apply(SensorReading reading)` |
 | `UnitConverter` | `SensorType _sensorType`, `string _fromUnit`, `string _toUnit`, `double _factor`, `double _offset`, `Apply(...)` |
-| `MovingAverageSmoother` | `int _windowSize`, `Dictionary<string, Queue<double>> _windows`, `Apply(...)` |
+| `MovingAverageSmoother` | `int _windowSize`, `Dictionary<(string, SensorType), Queue<double>> _windows`, `Apply(...)` |
 | `ThresholdAlerter` | `SensorType _sensorType`, `double _warningThreshold`, `double _criticalThreshold`, `Apply(...)` |
-| `TransformationChain` | `List<ITransformation> _steps`, `void Add(ITransformation step)`, `Apply(...)` |
+| `TransformationChain` | `List<ITransformation> _steps` (aggregation role, `0..*`), `void Add(ITransformation step)`, `Apply(...)` |
 
-`TransformationChain` implements `ITransformation` and holds other `ITransformation` objects (Composite pattern). The chain can be used anywhere a single transformation is expected.
+`TransformationChain` implements `ITransformation` and holds other `ITransformation` objects (Composite pattern). The chain can be used anywhere a single transformation is expected. The multiplicity on the chain side is `0..1`: a step belongs to at most one chain, and the root chain belongs to none (it is held by `Hub`).
+
+The smoothing windows are keyed by `(SensorId, SensorType)`, not by `SensorId` alone, because one sensor id (for example `room-a`) reports temperature, CO2 and humidity. With the id alone, a CO2 value would be averaged with a temperature. The key also means that a new sensor type or a new room needs no change in the smoother.
 
 ### 4.5 Output
 
 | Type | Members (C#) |
 |---|---|
 | `IOutputSink` | `void Write(SensorReading reading)`, `void Close()` |
-| `ConsoleDashboardSink` | `Dictionary<string, SensorReading> _latest`, `Write(...)`, `Close()`, private `Render()` |
+| `ConsoleDashboardSink` | `Dictionary<(string, SensorType), SensorReading> _latest`, `Write(...)`, `Close()`, private `Render()` |
 | `LogFileSink` | `StreamWriter _writer`, `Write(...)`, `Close()` |
 
-`Close()` lets the log file be flushed and closed properly when the hub stops.
+`Close()` lets the log file be flushed and closed properly when the hub stops. The dashboard keeps the latest reading per `(SensorId, SensorType)`, for the same reason as the smoother: one room reports several types. The Output class view also shows `Alert`, since the sinks display the alerts carried by each reading.
 
 ### 4.6 Configuration and Application
 
 | Type | Members (C#) |
 |---|---|
 | `Program` | `static void Main(string[] args)` |
-| `Hub` | `List<ISensorSource> _sources`, `ITransformation _chain`, `List<IOutputSink> _sinks`, `void Run()` |
+| `Hub` | `List<ISensorSource> _sources` (`1..*`), `ITransformation _chain` (`1`), `List<IOutputSink> _sinks` (`1..*`), all association roles; `void Run()` |
 | `ConfigLoader` | `HubConfig Load(string path)` |
-| `HubConfig` | `List<ComponentConfig> Sources`, `List<ComponentConfig> Transformations`, `List<ComponentConfig> Sinks` |
+| `HubConfig` | `List<ComponentConfig> Sources` (`1..*`), `List<ComponentConfig> Transformations` (`0..*`), `List<ComponentConfig> Sinks` (`1..*`), three composition roles |
 | `ComponentConfig` | `string Type`, `Dictionary<string, string> Settings` |
 | `SourceFactory` | `ISensorSource Create(ComponentConfig config)` |
 | `TransformationFactory` | `ITransformation Create(ComponentConfig config)`, `TransformationChain CreateChain(List<ComponentConfig> configs)` |
@@ -243,19 +255,23 @@ A reading carries its own alerts. This lets every transformation use the same si
 | `«interface»` | `interface` with the `I` prefix |
 | Class | `class`, one file per class |
 | `«enumeration»` | `enum` |
-| Private attributes | Private fields with a leading underscore |
-| Public attributes of `Core` types and `HubConfig` | Auto-properties (`{ get; set; }`) |
+| Private attributes and private association roles (`-_sources`) | Private fields with a leading underscore |
+| Public attributes and public association roles (`+Alerts`, `+Sources`) | Auto-properties (`{ get; set; }`) |
+| Multiplicity `1..*` / `0..*` | `List<T>` |
+| Static (underlined) | `static` |
 
 ### 4.8 Tactics and rationale
 
 | Tactic | Decision | Because |
 |---|---|---|
-| Use an intermediary / abstract common services | `Hub` holds `ISensorSource`, `ITransformation` and `IOutputSink` | A new source, transformation or sink does not change `Hub` |
+| Encapsulate | `Hub` holds `ISensorSource`, `ITransformation` and `IOutputSink`, never a concrete class | A new source, transformation or sink does not change `Hub` |
+| Use an intermediary | The factories are the only classes that name the concrete classes | Adding a class touches its own module and one factory |
 | Defer binding | `ComponentConfig` and the factories create objects from the config file | The chain and the conversions can be changed without a rebuild |
 | Increase semantic coherence | One class per responsibility (convert, smooth, alert) | A change to one rule touches one class |
 | Encapsulate | The chain is hidden behind `ITransformation` | The hub does not know how many steps there are or in what order |
 
 ## 5. Next views
 
-- **Component-and-connector view:** runtime components and the connectors between them.
-- **Allocation view (if relevant):** how the modules map to files, projects or the execution environment.
+- **Component-and-connector view:** runtime components and the connectors between them, see `SensorHub_CnC_View.md`.
+- **Allocation view:** how the modules map to projects, assemblies and the machine, see `SensorHub_Allocation_View.md`.
+- **Mapping between the three views:** see `SensorHub_View_Mapping.md`.

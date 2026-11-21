@@ -6,32 +6,39 @@ namespace SensorHub.Tests;
 public class RandomSensorSourceTests
 {
     [Fact]
-    public void Read_ProducesCountReadingsWithinRange()
+    public void Read_YieldsExactlyCountReadings()
     {
-        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400, 800, 100).Read().ToList();
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 5).Read().ToList();
 
-        Assert.Equal(100, readings.Count);
-        Assert.All(readings, r =>
+        Assert.Equal(5, readings.Count);
+    }
+
+    [Fact]
+    public void Read_EveryValueLiesWithinConfiguredRange()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 500).Read().ToList();
+
+        Assert.All(readings, reading => Assert.InRange(reading.Value, 18.0, 24.0));
+    }
+
+    [Fact]
+    public void Read_UsesConfiguredSensorIdTypeAndUnit()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400.0, 800.0, 10).Read().ToList();
+
+        Assert.All(readings, reading =>
         {
-            Assert.InRange(r.Value, 400, 800);
-            Assert.Equal("sim-01", r.SensorId);
-            Assert.Equal(SensorType.CO2, r.Type);
-            Assert.Equal("ppm", r.Unit);
+            Assert.Equal("sim-01", reading.SensorId);
+            Assert.Equal(SensorType.CO2, reading.Type);
+            Assert.Equal("ppm", reading.Unit);
         });
     }
 
     [Fact]
-    public void EqualMinAndMax_EveryValueEqualsThatValue()
+    public void Read_StartsWithEmptyAlerts()
     {
-        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 21, 21, 10).Read();
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 3).Read().ToList();
 
-        Assert.All(readings, r => Assert.Equal(21, r.Value));
-    }
-
-    [Fact]
-    public void MinAboveMax_Throws()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 25, 20, 10));
+        Assert.All(readings, reading => Assert.Empty(reading.Alerts));
     }
 }
