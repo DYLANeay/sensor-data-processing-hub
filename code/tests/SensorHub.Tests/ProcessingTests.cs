@@ -99,6 +99,13 @@ public class ProcessingTests
     }
 
     [Fact]
+    public void ThresholdAlerter_RejectsWarningAboveCritical()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new ThresholdAlerter(SensorType.Temperature, warningThreshold: 80, criticalThreshold: 70));
+    }
+
+    [Fact]
     public void ThresholdAlerter_IgnoresOtherSensorTypes()
     {
         var alerter = new ThresholdAlerter(SensorType.CO2, warningThreshold: 400, criticalThreshold: 1000);

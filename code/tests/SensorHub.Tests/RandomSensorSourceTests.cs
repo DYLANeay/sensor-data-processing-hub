@@ -14,6 +14,28 @@ public class RandomSensorSourceTests
     }
 
     [Fact]
+    public void MinAboveMax_Throws()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 25.0, 20.0, 5));
+    }
+
+    [Fact]
+    public void NegativeCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, -1));
+    }
+
+    [Fact]
+    public void Read_TimestampsAreUtc()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 3).Read();
+
+        Assert.All(readings, r => Assert.Equal(DateTimeKind.Utc, r.Timestamp.Kind));
+    }
+
+    [Fact]
     public void Read_EveryValueLiesWithinConfiguredRange()
     {
         var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 500).Read().ToList();

@@ -57,11 +57,11 @@ public sealed class CsvSensorSource : ISensorSource
             if (columns.Length != 5) return null;
 
             // Invariant culture only: a comma-decimal locale must not break parsing.
-            // AdjustToUniversal so a "Z" suffix yields a UTC DateTime (the
-            // RoundtripKind|AdjustToUniversal combo from the model is not a
-            // legal DateTimeStyles combination in .NET).
+            // AssumeUniversal: our CSVs have no "Z", treat them as UTC anyway.
+            // (RoundtripKind|AdjustToUniversal from the model is not a legal combination in .NET.)
             var timestampOk = DateTime.TryParse(
-                columns[0], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var timestamp);
+                columns[0], CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp);
             var valueOk = double.TryParse(
                 columns[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
                 && !double.IsNaN(value);

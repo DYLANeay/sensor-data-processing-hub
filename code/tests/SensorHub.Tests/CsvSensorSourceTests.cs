@@ -35,6 +35,19 @@ public class CsvSensorSourceTests : IDisposable
     }
 
     [Fact]
+    public void TimestampWithoutOffset_IsTreatedAsUtc()
+    {
+        var (readings, _) = ReadCsv("""
+            timestamp,sensor_id,type,value,unit
+            2026-11-19T08:00:00,room-a,temperature,22.2,C
+            """);
+
+        var timestamp = readings.Single().Timestamp;
+        Assert.Equal(new DateTime(2026, 11, 19, 8, 0, 0), timestamp);
+        Assert.Equal(DateTimeKind.Utc, timestamp.Kind); // DateTime equality ignores Kind, so check it separately
+    }
+
+    [Fact]
     public void InvalidRow_IsSkippedAndReported()
     {
         var (readings, errors) = ReadCsv("""

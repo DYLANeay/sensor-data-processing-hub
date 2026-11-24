@@ -17,6 +17,10 @@ public sealed class RandomSensorSource : ISensorSource
     public RandomSensorSource(
         string sensorId, SensorType sensorType, string unit, double minValue, double maxValue, int count)
     {
+        if (minValue > maxValue)
+            throw new ArgumentException($"minValue ({minValue}) must not be greater than maxValue ({maxValue}).");
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+
         _sensorId = sensorId;
         _sensorType = sensorType;
         _unit = unit;
@@ -35,7 +39,7 @@ public sealed class RandomSensorSource : ISensorSource
                 Type = _sensorType,
                 Value = _minValue + _random.NextDouble() * (_maxValue - _minValue),
                 Unit = _unit,
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.UtcNow,
             };
         }
     }

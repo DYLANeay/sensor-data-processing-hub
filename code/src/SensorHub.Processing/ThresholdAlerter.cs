@@ -16,6 +16,10 @@ public sealed class ThresholdAlerter : ITransformation
 
     public ThresholdAlerter(SensorType sensorType, double warningThreshold, double criticalThreshold)
     {
+        if (warningThreshold > criticalThreshold)
+            throw new ArgumentException(
+                $"warningThreshold ({warningThreshold}) must not be greater than criticalThreshold ({criticalThreshold}).");
+
         _sensorType = sensorType;
         _warningThreshold = warningThreshold;
         _criticalThreshold = criticalThreshold;
@@ -43,7 +47,7 @@ public sealed class ThresholdAlerter : ITransformation
             return new Alert
             {
                 Severity = severity,
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.UtcNow,
                 Message = FormattableString.Invariant(
                     $"{reading.SensorId} {reading.Type} {reading.Value:0.##} {reading.Unit} is above {level} {threshold:0.##}"),
             };
