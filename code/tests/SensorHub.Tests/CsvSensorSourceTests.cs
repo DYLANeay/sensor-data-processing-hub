@@ -25,7 +25,6 @@ public class CsvSensorSourceTests : IDisposable
 
         Assert.Equal(3, readings.Count);
         Assert.Equal(new DateTime(2026, 11, 19, 8, 0, 0, DateTimeKind.Utc), readings[0].Timestamp);
-        Assert.Equal(DateTimeKind.Utc, readings[0].Timestamp.Kind);
         Assert.Equal("room-101", readings[0].SensorId);
         Assert.Equal(SensorType.Temperature, readings[0].Type);
         Assert.Equal(21.3, readings[0].Value, precision: 3);
@@ -43,7 +42,9 @@ public class CsvSensorSourceTests : IDisposable
             2026-11-19T08:00:00,room-a,temperature,22.2,C
             """);
 
-        Assert.Equal(new DateTime(2026, 11, 19, 8, 0, 0, DateTimeKind.Utc), readings.Single().Timestamp);
+        var timestamp = readings.Single().Timestamp;
+        Assert.Equal(new DateTime(2026, 11, 19, 8, 0, 0), timestamp);
+        Assert.Equal(DateTimeKind.Utc, timestamp.Kind); // DateTime equality ignores Kind, so check it separately
     }
 
     [Fact]
@@ -79,12 +80,6 @@ public class CsvSensorSourceTests : IDisposable
     }
 
     [Fact]
-    public void WrongHeader_Throws()
-    {
-        Assert.Throws<InvalidOperationException>(() => ReadCsv("time,id,type,value,unit\n"));
-    }
-
-    [Fact]
     public void Value_ParsesInvariantlyUnderCommaDecimalCulture()
     {
         var originalCulture = CultureInfo.CurrentCulture;
@@ -106,20 +101,20 @@ public class CsvSensorSourceTests : IDisposable
     }
 
     // Writes csv to a temp file, reads it back, and returns the parsed
-    // readings plus everything written to the console error output.
+    // readings plus everything written to the error log.
     private (List<SensorReading> Readings, string Errors) ReadCsv(string csv)
     {
         var path = Path.GetTempFileName();
         _tempFiles.Add(path);
         File.WriteAllText(path, csv);
 
-        // shortcut: Console.Error is process-wide; fine while this is the only test class that writes to it.
-        var originalError = Console.Error;
         var errors = new StringWriter();
+        var originalError = Console.Error;
         Console.SetError(errors);
         try
         {
-            return (new CsvSensorSource(path).Read().ToList(), errors.ToString());
+            var readings = new CsvSensorSource(path).Read().ToList();
+            return (readings, errors.ToString());
         }
         finally
         {

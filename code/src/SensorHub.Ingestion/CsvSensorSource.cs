@@ -4,9 +4,8 @@ using SensorHub.Core;
 namespace SensorHub.Ingestion;
 
 /// <summary>Reads readings from a CSV file with the fixed header
-/// "timestamp,sensor_id,type,value,unit". Invalid rows are reported on the
-/// console error output and skipped.</summary>
-public class CsvSensorSource : ISensorSource
+/// "timestamp,sensor_id,type,value,unit". Invalid rows are logged and skipped.</summary>
+public sealed class CsvSensorSource : ISensorSource
 {
     private const string ExpectedHeader = "timestamp,sensor_id,type,value,unit";
 
@@ -19,9 +18,12 @@ public class CsvSensorSource : ISensorSource
 
     public IEnumerable<SensorReading> Read()
     {
+        using var reader = new StreamReader(_filePath);
+
         var headerChecked = false;
         var lineNumber = 0;
-        foreach (var line in File.ReadLines(_filePath))
+        string? line;
+        while ((line = reader.ReadLine()) is not null)
         {
             lineNumber++;
             var trimmed = line.Trim();
@@ -48,34 +50,36 @@ public class CsvSensorSource : ISensorSource
 
             yield return reading;
         }
-    }
 
-    private static SensorReading? TryParse(string line)
-    {
-        var columns = line.Split(',');
-        if (columns.Length != 5) return null;
-
-        // Invariant culture only: a comma-decimal locale must not break parsing.
-        var timestampOk = DateTime.TryParse(
-            columns[0], CultureInfo.InvariantCulture,
-            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp);
-        var valueOk = double.TryParse(
-            columns[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
-            && !double.IsNaN(value);
-        var typeText = columns[2].Trim();
-        var typeOk = Enum.TryParse<SensorType>(typeText, ignoreCase: true, out var type)
-            && !typeText.All(char.IsDigit) // bare digits would parse as the raw enum value
-            && Enum.IsDefined(type);
-
-        if (!timestampOk || !valueOk || !typeOk) return null;
-
-        return new SensorReading
+        SensorReading? TryParse(string text)
         {
-            Timestamp = timestamp,
-            SensorId = columns[1].Trim(),
-            Type = type,
-            Value = value,
-            Unit = columns[4].Trim(),
-        };
+            var columns = text.Split(',');
+            if (columns.Length != 5) return null;
+
+            // Invariant culture only: a comma-decimal locale must not break parsing.
+            // AssumeUniversal: our CSVs have no "Z", treat them as UTC anyway.
+            // (RoundtripKind|AdjustToUniversal from the model is not a legal combination in .NET.)
+            var timestampOk = DateTime.TryParse(
+                columns[0], CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var timestamp);
+            var valueOk = double.TryParse(
+                columns[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+                && !double.IsNaN(value);
+            var typeText = columns[2].Trim();
+            var typeOk = Enum.TryParse<SensorType>(typeText, ignoreCase: true, out var type)
+                && !typeText.All(char.IsDigit) // bare digits would parse as the raw enum value
+                && Enum.IsDefined(type);
+
+            if (!timestampOk || !valueOk || !typeOk) return null;
+
+            return new SensorReading
+            {
+                SensorId = columns[1].Trim(),
+                Type = type,
+                Value = value,
+                Unit = columns[4].Trim(),
+                Timestamp = timestamp,
+            };
+        }
     }
 }

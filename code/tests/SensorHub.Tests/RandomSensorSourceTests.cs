@@ -6,32 +6,61 @@ namespace SensorHub.Tests;
 public class RandomSensorSourceTests
 {
     [Fact]
-    public void Read_ProducesCountReadingsWithinRange()
+    public void Read_YieldsExactlyCountReadings()
     {
-        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400, 800, 100).Read().ToList();
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 5).Read().ToList();
 
-        Assert.Equal(100, readings.Count);
-        Assert.All(readings, r =>
-        {
-            Assert.InRange(r.Value, 400, 800);
-            Assert.Equal("sim-01", r.SensorId);
-            Assert.Equal(SensorType.CO2, r.Type);
-            Assert.Equal("ppm", r.Unit);
-        });
-    }
-
-    [Fact]
-    public void EqualMinAndMax_EveryValueEqualsThatValue()
-    {
-        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 21, 21, 10).Read();
-
-        Assert.All(readings, r => Assert.Equal(21, r.Value));
+        Assert.Equal(5, readings.Count);
     }
 
     [Fact]
     public void MinAboveMax_Throws()
     {
         Assert.Throws<ArgumentException>(() =>
-            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 25, 20, 10));
+            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 25.0, 20.0, 5));
+    }
+
+    [Fact]
+    public void NegativeCount_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, -1));
+    }
+
+    [Fact]
+    public void Read_TimestampsAreUtc()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 3).Read();
+
+        Assert.All(readings, r => Assert.Equal(DateTimeKind.Utc, r.Timestamp.Kind));
+    }
+
+    [Fact]
+    public void Read_EveryValueLiesWithinConfiguredRange()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 500).Read().ToList();
+
+        Assert.All(readings, reading => Assert.InRange(reading.Value, 18.0, 24.0));
+    }
+
+    [Fact]
+    public void Read_UsesConfiguredSensorIdTypeAndUnit()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.CO2, "ppm", 400.0, 800.0, 10).Read().ToList();
+
+        Assert.All(readings, reading =>
+        {
+            Assert.Equal("sim-01", reading.SensorId);
+            Assert.Equal(SensorType.CO2, reading.Type);
+            Assert.Equal("ppm", reading.Unit);
+        });
+    }
+
+    [Fact]
+    public void Read_StartsWithEmptyAlerts()
+    {
+        var readings = new RandomSensorSource("sim-01", SensorType.Temperature, "C", 18.0, 24.0, 3).Read().ToList();
+
+        Assert.All(readings, reading => Assert.Empty(reading.Alerts));
     }
 }

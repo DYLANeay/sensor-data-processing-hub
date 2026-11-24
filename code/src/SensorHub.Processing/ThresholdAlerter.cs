@@ -3,12 +3,12 @@ using SensorHub.Core;
 
 namespace SensorHub.Processing;
 
-/// <summary>Adds a Critical alert to readings of one sensor type above
-/// <c>criticalThreshold</c>, or a Warning alert above <c>warningThreshold</c>.
-/// The value itself is not changed. Thresholds are compared to the value as it
-/// is at this point in the chain, so place this step after any unit
-/// conversion and use thresholds in the converted unit.</summary>
-public class ThresholdAlerter : ITransformation
+/// <summary>Raises an alert when a reading of <c>sensorType</c> goes above
+/// <c>warningThreshold</c>, or a critical alert above <c>criticalThreshold</c>.
+/// The reading itself passes through unchanged. Thresholds are compared to
+/// the value as it is at this point in the chain, so place this step after
+/// any unit conversion and use thresholds in the converted unit.</summary>
+public sealed class ThresholdAlerter : ITransformation
 {
     private readonly SensorType _sensorType;
     private readonly double _warningThreshold;
@@ -29,20 +29,28 @@ public class ThresholdAlerter : ITransformation
     {
         if (reading.Type != _sensorType) return reading;
 
-        AlertSeverity severity;
-        double threshold;
-        if (reading.Value > _criticalThreshold) (severity, threshold) = (AlertSeverity.Critical, _criticalThreshold);
-        else if (reading.Value > _warningThreshold) (severity, threshold) = (AlertSeverity.Warning, _warningThreshold);
-        else return reading;
-
-        reading.Alerts.Add(new Alert
+        if (reading.Value > _criticalThreshold)
         {
-            Severity = severity,
-            // Invariant culture so "25.5" never becomes "25,5" on a Norwegian machine.
-            Message = string.Create(CultureInfo.InvariantCulture,
-                $"{reading.SensorId} {reading.Type} {reading.Value:0.##} {reading.Unit} is above {severity} threshold {threshold}"),
-            Timestamp = reading.Timestamp,
-        });
+            reading.Alerts.Add(MakeAlert(AlertSeverity.Critical, _criticalThreshold));
+        }
+        else if (reading.Value > _warningThreshold)
+        {
+            reading.Alerts.Add(MakeAlert(AlertSeverity.Warning, _warningThreshold));
+        }
+
         return reading;
+
+        // Invariant culture so "25.5" never becomes "25,5" on a Norwegian machine.
+        Alert MakeAlert(AlertSeverity severity, double threshold)
+        {
+            var level = severity.ToString().ToLowerInvariant();
+            return new Alert
+            {
+                Severity = severity,
+                Timestamp = DateTime.UtcNow,
+                Message = FormattableString.Invariant(
+                    $"{reading.SensorId} {reading.Type} {reading.Value:0.##} {reading.Unit} is above {level} {threshold:0.##}"),
+            };
+        }
     }
 }
