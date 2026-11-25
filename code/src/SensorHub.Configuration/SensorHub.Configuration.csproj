@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SensorHub.Core\SensorHub.Core.csproj" />
+    <ProjectReference Include="..\SensorHub.Ingestion\SensorHub.Ingestion.csproj" />
+    <ProjectReference Include="..\SensorHub.Processing\SensorHub.Processing.csproj" />
+    <ProjectReference Include="..\SensorHub.Output\SensorHub.Output.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
