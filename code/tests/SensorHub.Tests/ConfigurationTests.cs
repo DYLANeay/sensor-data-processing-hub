@@ -53,6 +53,20 @@ public class ConfigurationTests : IDisposable
             """));
 
         Assert.Empty(config.Transformations);
+        Assert.Equal(0, config.DelayMs); // no delay unless asked for
+    }
+
+    [Fact]
+    public void Loader_ReadsDelayAndRejectsNegative()
+    {
+        var loader = new ConfigLoader();
+
+        Assert.Equal(200, loader.Load(WriteConfig("""
+            { "delayMs": 200, "sources": [ { "type": "csv" } ], "sinks": [ { "type": "console" } ] }
+            """)).DelayMs);
+        Assert.Contains("delayMs must not be negative", Assert.Throws<InvalidOperationException>(() => loader.Load(WriteConfig("""
+            { "delayMs": -5, "sources": [ { "type": "csv" } ], "sinks": [ { "type": "console" } ] }
+            """))).Message);
     }
 
     [Theory]
