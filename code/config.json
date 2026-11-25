@@ -1,0 +1,38 @@
+{
+  // Sensor Hub configuration. Paths are relative to this file.
+  // All setting values are written as text, e.g. "factor": "1.8".
+
+  "sources": [
+    { "type": "csv", "settings": { "path": "data/room-a.csv" } },
+    {
+      "type": "random",
+      "settings": {
+        "sensorId": "sim-01", "sensorType": "Temperature", "unit": "C",
+        "minValue": "18", "maxValue": "30", "count": "20"
+      }
+    }
+  ],
+
+  // Applied to every reading, top to bottom. Thresholds come after the
+  // conversion, so temperature thresholds are in Fahrenheit (80.6 F = 27 C).
+  "transformations": [
+    {
+      "type": "unitConverter",
+      "settings": { "sensorType": "Temperature", "fromUnit": "C", "toUnit": "F", "factor": "1.8", "offset": "32" }
+    },
+    { "type": "movingAverage", "settings": { "windowSize": "3" } },
+    {
+      "type": "threshold",
+      "settings": { "sensorType": "Temperature", "warningThreshold": "80.6", "criticalThreshold": "84.2" }
+    },
+    {
+      "type": "threshold",
+      "settings": { "sensorType": "CO2", "warningThreshold": "1000", "criticalThreshold": "1200" }
+    }
+  ],
+
+  "sinks": [
+    { "type": "console" },
+    { "type": "logFile", "settings": { "path": "hub.log" } }
+  ]
+}

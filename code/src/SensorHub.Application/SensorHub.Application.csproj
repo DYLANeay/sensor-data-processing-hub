@@ -5,11 +5,7 @@
     <ProjectReference Include="..\SensorHub.Ingestion\SensorHub.Ingestion.csproj" />
     <ProjectReference Include="..\SensorHub.Processing\SensorHub.Processing.csproj" />
     <ProjectReference Include="..\SensorHub.Output\SensorHub.Output.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Make sample.csv available next to the built executable. -->
-    <Content Include="..\..\data\sample.csv" Link="data/sample.csv" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\SensorHub.Configuration\SensorHub.Configuration.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
