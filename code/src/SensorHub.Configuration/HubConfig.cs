@@ -9,4 +9,7 @@ public sealed class HubConfig
     public List<ComponentConfig> Transformations { get; set; } = [];
 
     public List<ComponentConfig> Sinks { get; set; } = [];
+
+    /// <summary>Pause after each reading, in milliseconds (0 = as fast as possible).</summary>
+    public int DelayMs { get; set; }
 }

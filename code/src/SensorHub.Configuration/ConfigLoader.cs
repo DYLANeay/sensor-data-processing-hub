@@ -36,6 +36,8 @@ public sealed class ConfigLoader
             throw new InvalidOperationException($"Config file '{path}' must list at least one source.");
         if (config.Sinks is not { Count: > 0 })
             throw new InvalidOperationException($"Config file '{path}' must list at least one sink.");
+        if (config.DelayMs < 0)
+            throw new InvalidOperationException($"Config file '{path}': delayMs must not be negative, got {config.DelayMs}.");
         config.Transformations ??= [];
 
         return config;

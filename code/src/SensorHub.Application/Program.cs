@@ -1,7 +1,5 @@
 ﻿using SensorHub.Configuration;
-using SensorHub.Ingestion;
 using SensorHub.Output;
-using SensorHub.Processing;
 
 namespace SensorHub.Application;
 
@@ -13,8 +11,7 @@ public static class Program
     {
         var configPath = Path.GetFullPath(args.Length > 0 ? args[0] : "config.json");
 
-        List<ISensorSource> sources;
-        TransformationChain chain;
+        Hub hub;
         var sinks = new List<IOutputSink>();
         try
         {
@@ -24,11 +21,13 @@ public static class Program
             Directory.SetCurrentDirectory(Path.GetDirectoryName(configPath)!);
 
             var sourceFactory = new SourceFactory();
-            sources = config.Sources.Select(sourceFactory.Create).ToList();
-            chain = new TransformationFactory().CreateChain(config.Transformations);
+            var sources = config.Sources.Select(sourceFactory.Create).ToList();
+            var chain = new TransformationFactory().CreateChain(config.Transformations);
             var sinkFactory = new SinkFactory();
             foreach (var sinkConfig in config.Sinks)
                 sinks.Add(sinkFactory.Create(sinkConfig));
+
+            hub = new Hub(sources, chain, sinks, TimeSpan.FromMilliseconds(config.DelayMs));
         }
         catch (Exception e) when (e is InvalidOperationException or ArgumentException or IOException)
         {
@@ -38,21 +37,6 @@ public static class Program
             return;
         }
 
-        // shortcut: the processing loop lives here until Hub exists (next issue), then becomes hub.Run().
-        try
-        {
-            foreach (var source in sources)
-                foreach (var reading in source.Read())
-                {
-                    var processed = chain.Apply(reading);
-                    foreach (var sink in sinks)
-                        sink.Write(processed);
-                }
-        }
-        finally
-        {
-            foreach (var sink in sinks)
-                sink.Close();
-        }
+        hub.Run();
     }
 }
