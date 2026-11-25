@@ -4,6 +4,7 @@ using SensorHub.Ingestion;
 
 namespace SensorHub.Tests;
 
+[Collection("Console")] // swaps Console.Error, so never in parallel with OutputTests
 public class CsvSensorSourceTests : IDisposable
 {
     private readonly List<string> _tempFiles = [];

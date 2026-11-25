@@ -4,6 +4,7 @@
     <ProjectReference Include="..\SensorHub.Core\SensorHub.Core.csproj" />
     <ProjectReference Include="..\SensorHub.Ingestion\SensorHub.Ingestion.csproj" />
     <ProjectReference Include="..\SensorHub.Processing\SensorHub.Processing.csproj" />
+    <ProjectReference Include="..\SensorHub.Output\SensorHub.Output.csproj" />
   </ItemGroup>
 
   <ItemGroup>
