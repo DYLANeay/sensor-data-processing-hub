@@ -1,8 +1,4 @@
 {
-  // Sensor Hub configuration. Paths are relative to this file.
-  // All setting values are written as text, e.g. "factor": "1.8".
-
-  // Pause after each reading so the dashboard visibly updates (0 = as fast as possible).
   "delayMs": 200,
 
   "sources": [
@@ -11,13 +7,11 @@
       "type": "random",
       "settings": {
         "sensorId": "sim-01", "sensorType": "Temperature", "unit": "C",
-        "minValue": "18", "maxValue": "30", "count": "300"
+        "minValue": "18", "maxValue": "30", "count": "2160"
       }
     }
   ],
 
-  // Applied to every reading, top to bottom. Thresholds come after the
-  // conversion, so temperature thresholds are in Fahrenheit (80.6 F = 27 C).
   "transformations": [
     {
       "type": "unitConverter",

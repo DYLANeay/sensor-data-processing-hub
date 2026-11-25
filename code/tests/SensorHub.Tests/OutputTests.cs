@@ -76,11 +76,12 @@ public class OutputTests : IDisposable
             sink.Write(Reading("room-a", SensorType.Temperature, 72.5, "F"));
         });
 
-        var lastTable = output[output.LastIndexOf("=== Sensor Hub Dashboard ===", StringComparison.Ordinal)..];
+        var lastTable = LastTable(output);
         Assert.Contains("72.5", lastTable);
         Assert.DoesNotContain(" 70 ", lastTable); // the old temperature was replaced
         Assert.Contains("610", lastTable);         // CO2 of the same sensor kept its own row
-        Assert.Contains("No active alerts.", lastTable);
+        Assert.Contains("Active alerts:\n  none", Normalize(lastTable));
+        Assert.Contains("Recent alerts (last 5):\n  none", Normalize(lastTable));
     }
 
     [Fact]
@@ -89,8 +90,42 @@ public class OutputTests : IDisposable
         var output = CaptureConsole(sink =>
             sink.Write(Reading("room-a", SensorType.Temperature, 80, "F", Warning("room-a Temperature 80 F is above warning 74"))));
 
-        Assert.Contains("[Warning] room-a Temperature 80 F is above warning 74", output);
+        Assert.Contains("Active alerts:\n  [Warning] room-a Temperature 80 F is above warning 74", Normalize(output));
     }
+
+    [Fact]
+    public void Dashboard_AlertStaysInRecentAfterValueGoesBackToNormal()
+    {
+        var output = CaptureConsole(sink =>
+        {
+            sink.Write(Reading("room-a", SensorType.Temperature, 85, "F", Warning("spike")));
+            sink.Write(Reading("room-a", SensorType.Temperature, 72, "F")); // back to normal
+        });
+
+        var lastTable = Normalize(LastTable(output));
+        Assert.Contains("Active alerts:\n  none", lastTable);  // no longer active...
+        Assert.Contains("[Warning] spike", lastTable);          // ...but still listed under recent
+    }
+
+    [Fact]
+    public void Dashboard_KeepsOnlyTheLastFiveAlertsNewestFirst()
+    {
+        var output = CaptureConsole(sink =>
+        {
+            for (var i = 1; i <= 7; i++)
+                sink.Write(Reading("room-a", SensorType.CO2, 1500, "ppm", Warning($"alert {i}")));
+        });
+
+        var recent = Normalize(LastTable(output)).Split("Recent alerts (last 5):\n")[1];
+        var messages = recent.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l[(l.IndexOf(']') + 2)..]);
+        Assert.Equal(["alert 7", "alert 6", "alert 5", "alert 4", "alert 3"], messages);
+    }
+
+    private static string LastTable(string output) =>
+        output[output.LastIndexOf("=== Sensor Hub Dashboard ===", StringComparison.Ordinal)..];
+
+    // Console.WriteLine uses "\r\n" on Windows.
+    private static string Normalize(string text) => text.Replace("\r\n", "\n");
 
     private static string CaptureConsole(Action<ConsoleDashboardSink> act)
     {
