@@ -33,8 +33,8 @@ Other files in the source tree:
 
 | File | Role |
 |---|---|
-| `code/config.json` | Default configuration of the hub. Copied by the build to the output folder |
-| `code/data/*.csv` | Input data. Copied by the build to `data/` in the output folder |
+| `code/config.json` | Configuration of the hub (sources, chain, sinks, `delayMs`). Read where it is, not copied by the build |
+| `code/data/*.csv` | Input data, referenced from `config.json` (`data/room-a.csv`) |
 | `code/SensorHub.sln` | Solution that builds every project |
 
 In .NET 8 every project, including the entry project, is built into a `.dll`. The build also creates a small launcher next to the entry assembly (`SensorHub.Application.exe` on Windows); it only starts `SensorHub.Application.dll` and is not a separate module.
@@ -65,21 +65,21 @@ Because a project can only use the types of the projects it references, a forbid
 | Presentation laptop | Node «device» | Any machine with the .NET 8 SDK (Windows, Linux or macOS) |
 | .NET 8 runtime | Execution environment | Installed with the SDK. Runs the hub as one process |
 | `SensorHub.Application.dll` and the five module assemblies | Artifacts «assembly» | The build output. The entry assembly manifests the `SensorHub` process of the C&C view |
-| `config.json` | Artifact | Read once at startup |
-| `data/room-a.csv` | Artifact | Input data of the CSV source |
-| `hub.log` | Artifact | Written by the log sink. Its path is set in `config.json` |
+| `config.json` | Artifact | Read once at startup. Its folder is the working folder of the hub |
+| `data/room-a.csv` | Artifact | Input data of the CSV source, in `data/` next to `config.json` |
+| `hub.log` | Artifact | Written by the log sink, next to `config.json` (path set in `config.json`) |
 | Terminal | (not drawn) | The console dashboard is shown in the terminal where the hub is started, on the same laptop. It is the `Console` of the C&C view |
 
-Everything is in one output folder on one machine. **Path rule:** the first program argument is the path of the configuration file. Without an argument, `config.json` is used. A relative path (for the configuration, the CSV files or the log) is resolved against the output folder, not against the current directory, so the hub finds its files wherever it is started from.
+Everything is on one machine: the assemblies in the build output, the data and configuration files in `code/`. **Path rule:** the first program argument is the path of the configuration file; without an argument, `config.json` in the current folder is used. At startup the hub moves to the folder of `config.json`, so every relative path written in it (CSV files, log file) is relative to `config.json`, whatever folder the build output is in.
 
-Running the hub from the repository (the SDK builds it first):
+Running the hub from the `code/` folder (the SDK builds it first):
 
 ```
-dotnet run --project code/src/SensorHub.Application
-dotnet run --project code/src/SensorHub.Application -- other-config.json
+dotnet run --project src/SensorHub.Application
+dotnet run --project src/SensorHub.Application -- path/to/other-config.json
 ```
 
-`dotnet run` needs the SDK. An already built output folder only needs the runtime: `dotnet SensorHub.Application.dll`.
+`dotnet run` needs the SDK. An already built output only needs the runtime: `dotnet SensorHub.Application.dll path/to/config.json`.
 
 ## 4. Modifiability: impact of likely changes
 
@@ -87,12 +87,12 @@ The response measure of a change is what has to be edited, recompiled and redepl
 
 | Change | Edited | Assemblies recompiled | Redeployed |
 |---|---|---|---|
-| Change the chain order, a conversion, a threshold or a window size | `config.json` (the copy in the output folder, or any file passed as argument) | none | nothing, restart the hub |
+| Change the chain order, a conversion, a threshold, a window size or the delay | `config.json` (or another file passed as argument) | none | nothing, restart the hub |
 | Use another input file | a CSV file and `config.json` | none | the CSV file, placed in `data/` |
-| Add a transformation (e.g. a median filter) | one class in Processing, one entry in `TransformationFactory`, `config.json` | Processing, Configuration, Application | the output folder |
-| Add a source (e.g. a socket feed) | one class in Ingestion, one entry in `SourceFactory`, `config.json` | Ingestion, Configuration, Application | the output folder |
-| Add a sink (e.g. CSV export) | one class in Output, one entry in `SinkFactory`, `config.json` | Output, Configuration, Application | the output folder |
-| Change a shared data type in Core | Core and every module that uses the changed member | all six | the output folder |
+| Add a transformation (e.g. a median filter) | one class in Processing, one entry in `TransformationFactory`, `config.json` | Processing, Configuration, Application | the build output |
+| Add a source (e.g. a socket feed) | one class in Ingestion, one entry in `SourceFactory`, `config.json` | Ingestion, Configuration, Application | the build output |
+| Add a sink (e.g. CSV export) | one class in Output, one entry in `SinkFactory`, `config.json` | Output, Configuration, Application | the build output |
+| Change a shared data type in Core | Core and every module that uses the changed member | all six | the build output |
 
 What the table shows:
 
@@ -108,7 +108,7 @@ What the table shows:
 | Project references = uses view | Restrict dependencies | The compiler rejects a forbidden dependency, so the module structure cannot erode silently |
 | `config.json` and data files outside the binaries | Defer binding (configuration-time binding) | The chain, the conversions, the thresholds and the input change by editing files, without rebuilding or redeploying |
 | Path of `config.json` given as a program argument | Defer binding (startup-time binding) | Several configurations can be kept side by side and chosen at launch, for example one per demo |
-| Relative paths resolved against the output folder | - | The hub behaves the same whatever directory it is started from, which avoids "file not found" during the demo |
+| Relative paths resolved against the folder of `config.json` | - | A configuration and its data files form one self-contained folder: the hub finds them whatever folder it is started from, which avoids "file not found" during the demo |
 | One machine, one process | Simplicity | Nothing to install or connect for the demo. The single node keeps the deployment trivial |
 
 **Future socket feed.** A socket source would add a second node (a sensor gateway) connected to the laptop over TCP. On the laptop, only `SensorHub.Ingestion.dll` (new source class), `SensorHub.Configuration.dll` (factory entry) and `SensorHub.Application.dll` (recompiled because it references them) change; Processing, Output and Core are unchanged. Because `hub` reads its sources in a single thread, a blocking socket would also require the concurrent variant described in the C&C view. This is a candidate modifiability scenario.
@@ -136,13 +136,6 @@ Summary below. The complete mapping between the three views, and how its consist
 | `config.json`, `data/room-a.csv`, `hub.log` | Read and written by Configuration, Ingestion, Output | Same elements, `«read»` / `«write»` |
 | Terminal of the laptop | Written by `ConsoleDashboardSink` (Output) | `Console` «external» |
 
-## 8. Gap with the current code
+## 8. Status of the code
 
-The view describes the target structure. The current code does not match it yet:
-
-- the projects `SensorHub.Configuration` and `SensorHub.Output` do not exist;
-- `SensorHub.Application` references only Core and Ingestion;
-- there is no `config.json`, and the build copies `data/sample.csv` only;
-- `Program` does not take the configuration path as argument yet (the path rule of §3 is to be implemented).
-
-These gaps are closed when the code is aligned with the UML model.
+The code on `main` implements this view: one project per module, the twelve project references of the uses view, `config.json` with its data files read relative to its own folder, and the configuration path as program argument.
