@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SensorHub.Application": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)..\\.."
+    }
+  }
+}
