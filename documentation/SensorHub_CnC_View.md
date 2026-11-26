@@ -10,7 +10,7 @@ In the UML model, the view is the diagram **C&C View - Runtime** in the package 
 
 - **Style:** call-return with a central mediator. `hub` is the only component that calls the sources, the chain and the sinks; they never call each other. Inside the chain, the steps form a **pipe-and-filter** sequence: the output of one step is the input of the next. The chain realises it by calling the steps one after the other.
 - **Concurrency:** a single thread, the main thread. `startup` builds everything, calls `hub.Run()` and waits until it returns.
-- **Configuration:** all components are created and wired once, at startup, from `config.json`. The diagram shows an example configuration: one CSV source, one random source, three steps and two sinks.
+- **Configuration:** all components are created and wired once, at startup, from `config.json`. The diagram shows an example configuration: one CSV source, one random source, four steps and two sinks. The temperature and CO2 alerts are two instances of the same class, `ThresholdAlerter`.
 - **Boundary:** the large `SensorHub` component is the hub process. The components inside it are its runtime parts (`name : Type`). The files and the console are outside: the process only reads or writes them.
 
 ## 2. Element catalog
@@ -27,8 +27,9 @@ In the UML model, the view is the diagram **C&C View - Runtime** in the package 
 | `chain` | `TransformationChain` | Calls its steps in the configured order | provides and requires `ITransformation` |
 | `converter` | `UnitConverter` | Linear unit conversion (e.g. °C to °F) | provides `ITransformation` |
 | `smoother` | `MovingAverageSmoother` | Moving average per (sensor, type) | provides `ITransformation` |
-| `alerter` | `ThresholdAlerter` | Adds Warning or Critical alerts to the reading | provides `ITransformation` |
-| `dashboard` | `ConsoleDashboardSink` | Shows the latest value and alerts per (sensor, type) | provides `IOutputSink` |
+| `tempAlerter` | `ThresholdAlerter` | Adds Warning or Critical alerts on temperature (thresholds in °F, after the conversion) | provides `ITransformation` |
+| `co2Alerter` | `ThresholdAlerter` | Adds Warning or Critical alerts on CO2 | provides `ITransformation` |
+| `dashboard` | `ConsoleDashboardSink` | Shows the latest value and alerts per (sensor, type), and the last 5 alerts raised | provides `IOutputSink` |
 | `log` | `LogFileSink` | Appends each processed reading and its alerts to a file | provides `IOutputSink` |
 | `Console` «external» | - | Standard output of the process | - |
 
@@ -52,7 +53,7 @@ The three files are owned by the allocation view (they are deployed next to the 
 | «create» | `startup` → `hub` | Creation (startup only) | `startup` creates `hub` and every component it is wired to |
 | `ISensorSource` (assembly) | `hub` → `csv`, `random` | Synchronous call, pull | `hub` asks a source for its next `SensorReading` |
 | `ITransformation` (assembly) | `hub` → `chain` | Synchronous call | `hub` passes a reading and gets the transformed reading back, with its alerts |
-| `ITransformation {1}`, `{2}`, `{3}` (assembly) | `chain` → `converter`, `smoother`, `alerter` | Synchronous call, ordered | `chain` calls each step in config order and passes the result of step n to step n+1 |
+| `ITransformation {1}` to `{4}` (assembly) | `chain` → `converter`, `smoother`, `tempAlerter`, `co2Alerter` | Synchronous call, ordered | `chain` calls each step in config order and passes the result of step n to step n+1 |
 | `IOutputSink` (assembly) | `hub` → `dashboard`, `log` | Synchronous call, push | `Write()` for each processed reading, `Close()` once at the end |
 | «read» / «write» | components → artifacts, `Console` | File / stream I/O | Configuration, input data and outputs |
 
@@ -61,7 +62,7 @@ In an assembly connector, the ball is on the side that **provides** the interfac
 ## 3. Behavior
 
 1. **Startup.** `startup` reads `config.json`. The factories create the sources, the steps (added to `chain` in the configured order) and the sinks. `startup` creates `hub` with them and calls `hub.Run()`.
-2. **Loop.** `hub` repeats: take the next reading from a source, call `chain.Apply(reading)`, then call `Write(reading)` on each sink. `chain.Apply` calls `converter`, `smoother` and `alerter` in turn. Sources are read in turn (round-robin) or one after the other (sequential); this variant is still to be fixed.
+2. **Loop.** `hub` repeats: take the next reading from a source, call `chain.Apply(reading)`, then call `Write(reading)` on each sink. `chain.Apply` calls `converter`, `smoother`, `tempAlerter` and `co2Alerter` in turn. Sources are read round-robin: one reading from each source in turn, and a source that is exhausted is dropped from the rotation. After each reading `hub` waits `delayMs` (from `config.json`, 0 = no pause), so the dashboard visibly updates during the demo.
 3. **End.** When every source is exhausted, `hub` calls `Close()` on every sink, so the log file is flushed and closed, and `Run()` returns.
 
 Everything runs in one thread, so the state kept by `smoother` and `dashboard` needs no locking.
@@ -72,7 +73,8 @@ The configuration file sets, without any code change:
 
 - how many sources there are and of which kind (CSV file, random generator);
 - which steps the chain contains, in which order, with which parameters (conversion factor and offset, window size, thresholds);
-- which sinks are used.
+- which sinks are used;
+- the pause after each reading (`delayMs`), for example 0 for a fast run and a few hundred milliseconds for the demo.
 
 ## 5. Rationale
 
@@ -95,12 +97,12 @@ These choices are about how the view is drawn in UML, not about the system itsel
 |---|---|---|
 | The runtime components are parts (`name : Type`) inside a `SensorHub` boundary that stands for the process | Free-standing components on the diagram | Without a boundary, nothing shows what runs in the process and what is external. `Console` was only told apart by its stereotype. The boundary is also the element the allocation view places on the machine |
 | Assembly connectors drawn directly between components, named after the interface (`ISensorSource`, `ITransformation`, `IOutputSink`). The ball is on the provider, the socket on the requirer | Provided and required interfaces drawn on each component, then linked by assembly connectors | With interfaces on the components, the tool draws the ball and socket twice (once on each component, once on the connector), which is hard to read. Naming the connector after the interface keeps the link with the module view |
-| `chain` is linked to each step by an ordered connector `ITransformation {1}`, `{2}`, `{3}` | Data-flow arrows `SensorReading` from `converter` to `smoother` to `alerter` | A C&C connector is a runtime interaction. The steps never call each other: `chain` calls each one in turn and passes the result on. Flow arrows between steps would show an interaction that does not exist. The pipe-and-filter idea is kept in the text and in a note, as the logical sequence of the data |
+| `chain` is linked to each step by an ordered connector `ITransformation {1}` to `{4}` | Data-flow arrows `SensorReading` from one step to the next | A C&C connector is a runtime interaction. The steps never call each other: `chain` calls each one in turn and passes the result on. Flow arrows between steps would show an interaction that does not exist. The pipe-and-filter idea is kept in the text and in a note, as the logical sequence of the data |
 | The steps are drawn next to `chain`, not inside it | Steps nested inside `chain` | Nesting reads as composition, but the module view says aggregation (`0..1`): a step can exist without a chain. The two views would contradict each other |
 | `startup` → `hub` has two connectors: `«create»` and `Run() «call»` | Only `«create»` | `startup` (the main thread) does not stop after building the components: it calls `hub.Run()` and waits for it. Creation happens once at startup, the call is the runtime entry point, so they are kept apart |
 | The startup phase is in the same diagram as the processing loop | A runtime-only diagram, with startup left out | Creating the components from `config.json` is the *defer binding* tactic, one of the main decisions of the architecture. Leaving it out would hide where the configuration comes in |
 | Files are artifacts and the console is an «external» component, linked by `«read»` and `«write»` | Leaving the files out, or drawing them as components | They are not part of the system, but the view must show what it reads and writes. Artifacts are the UML element for files |
-| One example configuration (2 sources, 3 steps, 2 sinks), stated in a note | Showing multiplicities instead of instances | A C&C view shows instances. The general multiplicities (`1..*` sources and sinks, `0..*` steps) are in the module view, so the note only says that this is one possible configuration |
+| The configuration of `config.json` (2 sources, 4 steps, 2 sinks), stated in a note | Showing multiplicities instead of instances | A C&C view shows instances. The general multiplicities (`1..*` sources and sinks, `0..*` steps) are in the module view, so the note only says that this is one possible configuration |
 | Each component is linked to its class by a `«trace»` dependency that is not drawn | Drawing the classes in the C&C diagram | The classes would double the size of the diagram. The `«trace»` links keep the mapping in the model (§7) without cluttering the view |
 | The two notes are not attached to an element | Notes linked to `hub` and `chain` | Their links crossed the boundary and other components. The text names the element it talks about |
 
@@ -113,7 +115,7 @@ Each component is linked to the class it instantiates by a `«trace»` dependenc
 | `startup` | `Program`, `ConfigLoader`, the three factories | Application, Configuration |
 | `hub` | `Hub` | Application |
 | `csv`, `random` | `CsvSensorSource`, `RandomSensorSource` | Ingestion |
-| `chain`, `converter`, `smoother`, `alerter` | `TransformationChain`, `UnitConverter`, `MovingAverageSmoother`, `ThresholdAlerter` | Processing |
+| `chain`, `converter`, `smoother`, `tempAlerter`, `co2Alerter` | `TransformationChain`, `UnitConverter`, `MovingAverageSmoother`, `ThresholdAlerter` | Processing |
 | `dashboard`, `log` | `ConsoleDashboardSink`, `LogFileSink` | Output |
 | Connectors `ISensorSource`, `ITransformation`, `IOutputSink` | Interfaces of the same name | Ingestion, Processing, Output |
 | Connector `Run()` | Operation `Hub.Run()` | Application |

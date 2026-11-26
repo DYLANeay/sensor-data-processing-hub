@@ -35,14 +35,15 @@ One row per element of the module view. The **C&C** column says what the element
 | Application | `Hub` | `hub` | `SensorHub.Application.dll` | idem |
 | Configuration | `ConfigLoader`, `SourceFactory`, `TransformationFactory`, `SinkFactory` | `startup` | `SensorHub.Configuration.dll` | idem |
 | Configuration | `HubConfig`, `ComponentConfig` | Data held by `startup` while it builds the components (not a component) | `SensorHub.Configuration.dll` | idem |
+| Configuration | `ConfigSettings` (internal helper) | Called by the factories inside `startup` (not a component of its own) | `SensorHub.Configuration.dll` | idem |
 | Ingestion | `ISensorSource` «interface» | Connector `ISensorSource` (`hub` → sources) | `SensorHub.Ingestion.dll` | idem |
 | Ingestion | `CsvSensorSource` | `csv` | `SensorHub.Ingestion.dll` | idem |
 | Ingestion | `RandomSensorSource` | `random` | `SensorHub.Ingestion.dll` | idem |
-| Processing | `ITransformation` «interface» | Connectors `ITransformation` (`hub` → `chain`) and `ITransformation {1..3}` (`chain` → steps) | `SensorHub.Processing.dll` | idem |
+| Processing | `ITransformation` «interface» | Connectors `ITransformation` (`hub` → `chain`) and `ITransformation {1..4}` (`chain` → steps) | `SensorHub.Processing.dll` | idem |
 | Processing | `TransformationChain` | `chain` | `SensorHub.Processing.dll` | idem |
 | Processing | `UnitConverter` | `converter` | `SensorHub.Processing.dll` | idem |
 | Processing | `MovingAverageSmoother` | `smoother` | `SensorHub.Processing.dll` | idem |
-| Processing | `ThresholdAlerter` | `alerter` | `SensorHub.Processing.dll` | idem |
+| Processing | `ThresholdAlerter` | `tempAlerter` and `co2Alerter` (two instances) | `SensorHub.Processing.dll` | idem |
 | Output | `IOutputSink` «interface» | Connector `IOutputSink` (`hub` → sinks) | `SensorHub.Output.dll` | idem |
 | Output | `ConsoleDashboardSink` | `dashboard` | `SensorHub.Output.dll` | idem |
 | Output | `LogFileSink` | `log` | `SensorHub.Output.dll` | idem |
@@ -52,7 +53,7 @@ One row per element of the module view. The **C&C** column says what the element
 
 What the mapping shows:
 
-- **Classes become components, interfaces become connectors, Core types become data.** Every class with behavior corresponds to exactly one component (the startup classes share `startup`); every interface is the type of a connector; the Core types travel on the connectors. `HubConfig` and `ComponentConfig` are data used by `startup`, not components.
+- **Classes become components, interfaces become connectors, Core types become data.** Every class with behavior has its component(s): one each, except `ThresholdAlerter`, which runs as two instances (temperature and CO2), and the startup classes, which share `startup` (the internal helper `ConfigSettings` runs inside it); every interface is the type of a connector; the Core types travel on the connectors. `HubConfig` and `ComponentConfig` are data used by `startup`, not components.
 - **One module, one assembly.** Each column "Assembly" value is the module of the row.
 - **`startup` is the only component that spans two modules** (Application and Configuration). It is the startup phase as a whole: `Program` drives it, the classes of Configuration do the work. Its two connectors to `hub` (`«create»` and `Run()`) are issued by `Program`, so they stay inside Application. This is written in the notes of those connectors.
 
@@ -74,7 +75,7 @@ Each `«use»` dependency of the uses view, the C&C connectors it allows, and th
 | Ingestion → Core | the sources produce `SensorReading` | Ingestion → Core |
 | Processing → Core | the steps read and change `SensorReading`, add `Alert` | Processing → Core |
 | Output → Core | the sinks show and write `SensorReading` and `Alert` | Output → Core |
-| (Processing → Processing) | `chain` → `converter`, `smoother`, `alerter` (`ITransformation {1..3}`) | inside `SensorHub.Processing.dll` |
+| (Processing → Processing) | `chain` → `converter`, `smoother`, `tempAlerter`, `co2Alerter` (`ITransformation {1..4}`) | inside `SensorHub.Processing.dll` |
 
 The three columns have the same dependencies. No C&C connector links two components whose modules may not use each other, and no project reference exists without a `«use»` dependency.
 
@@ -82,9 +83,9 @@ The three columns have the same dependencies. No C&C connector links two compone
 
 | File | Module view | C&C view | Allocation view |
 |---|---|---|---|
-| `config.json` | Read by `ConfigLoader`, parsed into `HubConfig` (Configuration) | `startup` «read» | Artifact in the output folder on the laptop |
-| `data/room-a.csv` | Read by `CsvSensorSource` (Ingestion) | `csv` «read» | Artifact in `data/` in the output folder |
-| `hub.log` | Written by `LogFileSink` (Output) | `log` «write» | Artifact in the output folder (path from `config.json`) |
+| `config.json` | Read by `ConfigLoader`, parsed into `HubConfig` (Configuration) | `startup` «read» | Artifact on the laptop; its folder is the working folder of the hub |
+| `data/room-a.csv` | Read by `CsvSensorSource` (Ingestion) | `csv` «read» | Artifact in `data/`, next to `config.json` |
+| `hub.log` | Written by `LogFileSink` (Output) | `log` «write» | Artifact next to `config.json` (path from `config.json`) |
 | Console | Written by `ConsoleDashboardSink` (Output) | `Console` «external», `dashboard` «write» | The terminal where the hub is started |
 
 ## 5. Consistency checks
@@ -114,7 +115,7 @@ The mapping is what makes the modifiability scenarios measurable: a change is lo
 **Change the smoothing window or a threshold.**
 
 - Module view: nothing.
-- C&C view: same components and connectors, one parameter of `smoother` or `alerter` changes.
+- C&C view: same components and connectors, one parameter of `smoother` or of an alerter changes.
 - Allocation view: only `config.json` changes. No assembly is recompiled.
 
 **Add a socket feed source.**

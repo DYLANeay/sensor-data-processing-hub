@@ -71,6 +71,7 @@ The system is implemented in **C#**. Each module is a package in the UML model a
 - `SourceFactory`: creates `ISensorSource` instances from the config.
 - `TransformationFactory`: creates the `TransformationChain` from the config.
 - `SinkFactory`: creates `IOutputSink` instances from the config.
+- `ConfigSettings` (internal, static): helper used by the three factories to read typed settings (`GetString`, `GetDouble`, `GetInt`, `GetSensorType`) from a `ComponentConfig` and to build clear error messages.
 
 **Notes:** The factories are the only place where concrete classes are named. Changing the system behavior is done in the config file or by registering a new class in a factory.
 
@@ -205,7 +206,7 @@ A reading carries its own alerts. This lets every transformation use the same si
 | Type | Members (C#) |
 |---|---|
 | `ISensorSource` | `IEnumerable<SensorReading> Read()` |
-| `CsvSensorSource` | `string _filePath`, `IEnumerable<SensorReading> Read()` |
+| `CsvSensorSource` | `string _filePath`, `IEnumerable<SensorReading> Read()` (parses the `type` column into a `SensorType`) |
 | `RandomSensorSource` | `Random _random`, `SensorType _sensorType`, `int _count`, `IEnumerable<SensorReading> Read()` |
 
 ### 4.4 Processing
@@ -227,7 +228,7 @@ The smoothing windows are keyed by `(SensorId, SensorType)`, not by `SensorId` a
 | Type | Members (C#) |
 |---|---|
 | `IOutputSink` | `void Write(SensorReading reading)`, `void Close()` |
-| `ConsoleDashboardSink` | `Dictionary<(string, SensorType), SensorReading> _latest`, `Write(...)`, `Close()`, private `Render()` |
+| `ConsoleDashboardSink` | `Dictionary<(string, SensorType), SensorReading> _latest`, `Queue<Alert> _recentAlerts` (the last 5 alerts), `Write(...)`, `Close()`, private `Render()` |
 | `LogFileSink` | `StreamWriter _writer`, `Write(...)`, `Close()` |
 
 `Close()` lets the log file be flushed and closed properly when the hub stops. The dashboard keeps the latest reading per `(SensorId, SensorType)`, for the same reason as the smoother: one room reports several types. The Output class view also shows `Alert`, since the sinks display the alerts carried by each reading.
@@ -237,13 +238,14 @@ The smoothing windows are keyed by `(SensorId, SensorType)`, not by `SensorId` a
 | Type | Members (C#) |
 |---|---|
 | `Program` | `static void Main(string[] args)` |
-| `Hub` | `List<ISensorSource> _sources` (`1..*`), `ITransformation _chain` (`1`), `List<IOutputSink> _sinks` (`1..*`), all association roles; `void Run()` |
+| `Hub` | `List<ISensorSource> _sources` (`1..*`), `ITransformation _chain` (`1`), `List<IOutputSink> _sinks` (`1..*`), all association roles; `TimeSpan _delay`; constructor `Hub(sources, chain, sinks, delay)`; `void Run()` |
 | `ConfigLoader` | `HubConfig Load(string path)` |
-| `HubConfig` | `List<ComponentConfig> Sources` (`1..*`), `List<ComponentConfig> Transformations` (`0..*`), `List<ComponentConfig> Sinks` (`1..*`), three composition roles |
+| `HubConfig` | `List<ComponentConfig> Sources` (`1..*`), `List<ComponentConfig> Transformations` (`0..*`), `List<ComponentConfig> Sinks` (`1..*`), three composition roles; `int DelayMs` (pause after each reading, 0 = none) |
 | `ComponentConfig` | `string Type`, `Dictionary<string, string> Settings` |
 | `SourceFactory` | `ISensorSource Create(ComponentConfig config)` |
 | `TransformationFactory` | `ITransformation Create(ComponentConfig config)`, `TransformationChain CreateChain(List<ComponentConfig> configs)` |
 | `SinkFactory` | `IOutputSink Create(ComponentConfig config)` |
+| `ConfigSettings` (internal) | static `GetString`, `GetDouble`, `GetInt`, `GetSensorType`, `UnknownType`, private static `Error`; used by the three factories |
 
 `ComponentConfig` is a generic entry (type name and settings), so adding a new source, transformation or sink does not require a new config class. The factories map the type name to the concrete class. They are the only place where the concrete classes of `Ingestion`, `Processing` and `Output` are named, and this is the dependency shown in the uses view.
 
